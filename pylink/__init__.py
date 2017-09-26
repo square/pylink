@@ -14,7 +14,7 @@
 
 __version__ = '0.0.6'
 __title__ = 'pylink'
-__author__ = 'Ford Peprah'
+__author__ = 'Square Embedded Software Team'
 __author_email__ = 'esw-team@squareup.com'
 __copyright__ = 'Copyright 2017 Square, Inc.'
 __license__ = 'Apache 2.0'
