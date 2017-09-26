@@ -1,0 +1,9 @@
+# .coveragerc to control coverage.py
+
+[report]
+exclude_lines =
+    if __name__ == '__main__':
+    exit(main())
+
+[run]
+parallel = False
