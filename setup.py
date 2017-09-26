@@ -204,6 +204,28 @@ class BDDTestCommand(setuptools.Command):
         return behave.main([self.features_dir])
 
 
+def long_description():
+    """Reads and returns the contents of the README.
+
+    On failure, returns the project long description.
+
+    Returns:
+      The project's long description.
+    """
+    cwd = os.path.abspath(os.path.dirname(__file__))
+    readme_path = os.path.join(cwd, 'README.md')
+    if not os.path.exists(readme_path):
+        return pylink.__long_description__
+
+    try:
+        import pypandoc
+        return pypandoc.convert(readme_path, 'rst')
+    except (IOError, ImportError):
+        pass
+
+    return open(readme_path, 'r').read()
+
+
 setuptools.setup(
     # Project information.
     name='pylink-square',
@@ -213,7 +235,7 @@ setuptools.setup(
     author=pylink.__author__,
     author_email=pylink.__author_email__,
     description=pylink.__description__,
-    long_description=pylink.__long_description__,
+    long_description=long_description(),
     license=pylink.__license__,
     keywords='SEGGER J-Link',
     url=pylink.__url__,
