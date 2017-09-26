@@ -89,7 +89,7 @@ if __name__ == '__main__':
 ## Troubleshooting
 
 Should you run into any issues, refer to the documentation, as well as check
-out our [troubleshooting](./TROUBLESHOOTING) document.
+out our [troubleshooting](./TROUBLESHOOTING.md) document.
 
 
 ## Documentation
