@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import util
+from . import util
 
 import ctypes
 import ctypes.util as ctypes_util
@@ -100,9 +100,6 @@ class Library(object):
         Returns:
           The paths to the J-Link library files in the order that they are
           found.
-
-        Raises:
-          StopIteration: when there are no more remaining paths.
         """
         dll = Library.WINDOWS_JLINK_SDK_NAME + '.dll'
         root = 'C:\\'
@@ -124,8 +121,6 @@ class Library(object):
                     if os.path.isfile(lib_path):
                         yield lib_path
 
-        raise StopIteration
-
     @classmethod
     def find_library_linux(cls):
         """Loads the SEGGER DLL from the root directory.
@@ -139,21 +134,30 @@ class Library(object):
         Returns:
           The paths to the J-Link library files in the order that they are
           found.
-
-        Raises:
-          StopIteration: when there are no more remaining paths.
         """
         dll = Library.JLINK_SDK_NAME
         root = os.path.join('/', 'opt', 'SEGGER')
 
         for (directory_name, subdirs, files) in os.walk(root):
+            fnames = []
+            x86_found = False
             for f in files:
                 path = os.path.join(directory_name, f)
                 if os.path.isfile(path) and f.startswith(dll):
-                    if not (util.is_os_64bit() and '_x86' in f):
-                        yield path
+                    fnames.append(f)
+                    if '_x86' in path:
+                        x86_found = True
 
-        raise StopIteration
+            for fname in fnames:
+                fpath = os.path.join(directory_name, fname)
+                if util.is_os_64bit():
+                    if '_x86' not in fname:
+                        yield fpath
+                elif x86_found:
+                    if '_x86' in fname:
+                        yield fpath
+                else:
+                    yield fpath
 
     @classmethod
     def find_library_darwin(cls):
@@ -179,14 +183,11 @@ class Library(object):
 
         Returns:
           The path to the J-Link library files in the order they are found.
-
-        Raises:
-          StopIteration: when there are no more remaining paths.
         """
         dll = Library.JLINK_SDK_NAME
         root = os.path.join('/', 'Applications', 'SEGGER')
         if not os.path.isdir(root):
-            raise StopIteration
+            return
 
         for d in os.listdir(root):
             dir_path = os.path.join(root, d)
@@ -206,8 +207,6 @@ class Library(object):
                 for f in files:
                     if f.startswith(dll):
                         yield os.path.join(dir_path, f)
-
-        raise StopIteration
 
     def __init__(self, dllpath=None):
         """Initializes an instance of a ``Library``.

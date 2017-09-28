@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import enums
+from . import enums
+from . import util
 
 
 class JLinkException(enums.JLinkGlobalErrors, Exception):
@@ -33,11 +34,12 @@ class JLinkException(enums.JLinkGlobalErrors, Exception):
 
         self.code = None
 
-        if not isinstance(code, basestring):
+        if util.is_integer(code):
             message = self.to_string(code)
             self.code = code
 
         super(JLinkException, self).__init__(message)
+        self.message = message
 
 
 class JLinkEraseException(enums.JLinkEraseErrors, JLinkException):

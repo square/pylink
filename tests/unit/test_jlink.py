@@ -22,7 +22,10 @@ import pylink.util as util
 
 import mock
 
-import StringIO
+try:
+    import StringIO
+except ImportError:
+    import io as StringIO
 import ctypes
 import itertools
 import unittest
@@ -42,6 +45,8 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
+        assertRaisesRegexp = getattr(self, 'assertRaisesRegexp', None)
+        self.assertRaisesRegexp = getattr(self, 'assertRaisesRegex', assertRaisesRegexp)
         self.lib = mock.Mock()
         self.dll = mock.Mock()
         self.lib.dll.return_value = self.dll
@@ -648,7 +653,7 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINKARM_EMU_SelectByUSBSN.return_value = 0
 
-        buf = ctypes.create_string_buffer('Error!', 32)
+        buf = ctypes.create_string_buffer(b'Error!', 32)
         self.dll.JLINKARM_OpenEx.return_value = ctypes.addressof(buf)
 
         with self.assertRaisesRegexp(JLinkException, 'Error!'):
@@ -842,7 +847,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         def foo(cmd, err_buf, err_buf_len):
-            for (index, ch) in enumerate('Error!'):
+            for (index, ch) in enumerate(b'Error!'):
                 err_buf[index] = ch
             return 0
 
@@ -969,6 +974,8 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(enums.JLinkInterfaces.JTAG, self.jlink.tif)
 
         self.dll.JLINKARM_GetDLLVersion.return_value = 49805
+        self.dll.JLINKARM_CORESIGHT_Configure.return_value = 0
+
         self.jlink.coresight_configure(perform_tif_init=False)
 
         self.dll.JLINKARM_CORESIGHT_Configure.return_value = -1
@@ -982,9 +989,9 @@ class TestJLink(unittest.TestCase):
 
         arg = self.dll.JLINKARM_CORESIGHT_Configure.call_args[0][0]
         self.assertTrue(len(arg) > 0)
-        self.assertTrue('PerformTIFInit=0' in arg)
-        self.assertTrue('DRPost=2' in arg)
-        self.assertTrue('IRPost=3' in arg)
+        self.assertTrue(b'PerformTIFInit=0' in arg)
+        self.assertTrue(b'DRPost=2' in arg)
+        self.assertTrue(b'IRPost=3' in arg)
 
     @mock.patch('time.sleep')
     def test_jlink_connect_failed(self, mock_sleep):
@@ -1187,7 +1194,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         date = '2016-09-09'
-        buf = ctypes.create_string_buffer(date, 32)
+        buf = ctypes.create_string_buffer(date.encode(), 32)
         self.dll.JLINKARM_GetCompileDateTime.return_value = ctypes.addressof(buf)
 
         self.assertEqual(date, self.jlink.compile_date)
@@ -1235,7 +1242,7 @@ class TestJLink(unittest.TestCase):
         firmware = 'J-Trace Cortex-M Rev.3 compiled Mar 30 2015 13:52:25'
 
         def set_firmware_string(buf, buf_size):
-            ctypes.memmove(buf, firmware, len(firmware))
+            ctypes.memmove(buf, firmware.encode(), len(firmware))
 
         self.dll.JLINKARM_GetFirmwareString = set_firmware_string
 
@@ -1260,11 +1267,11 @@ class TestJLink(unittest.TestCase):
         new = 'J-Trace Cortex-M Rev.3 compiled Jun 30 2016 16:58:07'
 
         def set_embedded_fw_string(identifier, buf, buf_size):
-            ctypes.memmove(buf, old, len(old))
+            ctypes.memmove(buf, old.encode(), len(old))
             return 0
 
         def set_firmware_string(buf, buf_size):
-            ctypes.memmove(buf, new, len(new))
+            ctypes.memmove(buf, new.encode(), len(new))
             return 0
 
         self.dll.JLINKARM_GetFirmwareString = set_firmware_string
@@ -1288,11 +1295,11 @@ class TestJLink(unittest.TestCase):
         new = 'J-Trace Cortex-M Rev.3 compiled Jun 30 2016 16:58:07'
 
         def set_embedded_fw_string(identifier, buf, buf_size):
-            ctypes.memmove(buf, old, len(old))
+            ctypes.memmove(buf, old.encode(), len(old))
             return 0
 
         def set_firmware_string(buf, buf_size):
-            ctypes.memmove(buf, new, len(new))
+            ctypes.memmove(buf, new.encode(), len(new))
             return 0
 
         self.dll.JLINKARM_GetFirmwareString = set_firmware_string
@@ -1400,7 +1407,7 @@ class TestJLink(unittest.TestCase):
 
         def get_firmware_string(buf, buf_size):
             firmware_string = firmware_strings.pop(0)
-            ctypes.memmove(buf, firmware_string, len(firmware_string))
+            ctypes.memmove(buf, firmware_string.encode(), len(firmware_string))
 
         self.dll.JLINKARM_GetFirmwareString = get_firmware_string
 
@@ -1477,7 +1484,7 @@ class TestJLink(unittest.TestCase):
         feature_string = 'RDI, JFlash, FlashDL'
 
         def func(b):
-            ctypes.memmove(b, feature_string, len(feature_string))
+            ctypes.memmove(b, feature_string.encode(), len(feature_string))
 
         self.dll.JLINKARM_GetFeatureString = func
 
@@ -1562,7 +1569,7 @@ class TestJLink(unittest.TestCase):
 
         def func(buf):
             oem = oems.pop(0)
-            ctypes.memmove(buf, oem, len(oem))
+            ctypes.memmove(buf, oem.encode(), len(oem))
             return 0
 
         self.dll.JLINKARM_GetOEMString = func
@@ -2713,7 +2720,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         core_cpu = 234881279
-        core_name = 'Cortex-M4'
+        core_name = b'Cortex-M4'
         self.dll.JLINKARM_CORE_GetFound.return_value = core_cpu
 
         def write_core_name(cpu, buf, buf_size):
@@ -2723,7 +2730,7 @@ class TestJLink(unittest.TestCase):
 
         self.dll.JLINKARM_Core2CoreName.side_effect = write_core_name
 
-        self.assertEqual(core_name, self.jlink.core_name())
+        self.assertEqual(core_name.decode(), self.jlink.core_name())
 
         self.dll.JLINKARM_CORE_GetFound.assert_called_once()
         self.dll.JLINKARM_Core2CoreName.assert_called_once()
@@ -2814,7 +2821,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         register_name = 'Name'
-        buf = ctypes.create_string_buffer(register_name, len(register_name))
+        buf = ctypes.create_string_buffer(register_name.encode(), len(register_name))
         self.dll.JLINKARM_GetRegisterName.return_value = ctypes.addressof(buf)
 
         self.assertEqual(register_name, self.jlink.register_name(0))
@@ -3224,6 +3231,7 @@ class TestJLink(unittest.TestCase):
         """
         self.jlink.num_memory_zones = mock.Mock()
         self.jlink.num_memory_zones.return_value = 1
+        self.dll.JLINK_GetMemZones.return_value = 0
 
         res = self.jlink.memory_zones()
         self.assertTrue(isinstance(res, list))
@@ -4031,7 +4039,7 @@ class TestJLink(unittest.TestCase):
                 return num_breakpoints
 
             count = 0
-            for (mask, value) in breakpoint_types.iteritems():
+            for (mask, value) in breakpoint_types.items():
                 if flags & mask:
                     count = count + value
 
@@ -4488,7 +4496,7 @@ class TestJLink(unittest.TestCase):
 
         self.assertEqual(None, self.jlink.strace_configure(4))
 
-        self.dll.JLINK_STRACE_Config.assert_called_with('PortWidth=4')
+        self.dll.JLINK_STRACE_Config.assert_called_with(b'PortWidth=4')
 
     def test_jlink_strace_start_failed(self):
         """Tests failing to start STRACE.
@@ -5082,6 +5090,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_SWO_EnableTarget.return_value = -1
+        self.jlink.swo_stop = mock.Mock()
 
         with self.assertRaises(JLinkException):
             self.jlink.swo_enable(0)

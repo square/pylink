@@ -16,7 +16,10 @@ import pylink
 
 import behave
 
-import StringIO
+try:
+    import StringIO
+except ImportError:
+    import io as StringIO
 import sys
 import time
 
@@ -198,8 +201,7 @@ def after_scenario(context, scenario):
         if len(jlink.custom_licenses) > 0:
             jlink.erase_licenses()
 
-    if scenario.status == 'failed':
-        jlink.close()
+    jlink.close()
 
 
 def before_tag(context, tag):

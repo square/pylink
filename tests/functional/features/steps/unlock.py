@@ -95,7 +95,6 @@ def step_unlock_device(context):
     jlink.reset()
     jlink.set_reset_strategy(pylink.JLinkResetStrategyCortexM3.NORMAL)
 
-    assert isinstance(device, basestring)
     assert jlink.target_connected()
     assert jlink.unlock()
 

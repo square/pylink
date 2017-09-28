@@ -35,7 +35,8 @@ class TestJLock(unittest.TestCase):
         Returns:
           ``None``
         """
-        pass
+        assertRaisesRegexp = getattr(self, 'assertRaisesRegexp', None)
+        self.assertRaisesRegexp = getattr(self, 'assertRaisesRegex', assertRaisesRegexp)
 
     def tearDown(self):
         """Called after each test.
@@ -74,7 +75,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.write')
     @mock.patch('os.remove')
     @mock.patch('pylink.jlock.psutil')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_exists(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests trying to acquire when the lock exists for an active process.
 
@@ -122,7 +123,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.write')
     @mock.patch('os.remove')
     @mock.patch('pylink.jlock.psutil')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_os_error(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests trying to acquire the lock but generating an os-level error.
 
@@ -167,7 +168,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.write')
     @mock.patch('os.remove')
     @mock.patch('pylink.jlock.psutil')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_bad_file(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests acquiring the lockfile when the current lockfile is invallid.
 
@@ -216,10 +217,9 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.write')
     @mock.patch('os.remove')
     @mock.patch('pylink.jlock.psutil')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_invalid_pid(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
-        """Tests acquiring the lockfile when the pid in the lockfile is
-        invalid.
+        """Tests acquiring the lockfile when the pid in the lockfile is invalid.
 
         Args:
           self (TestJLock): the ``TestJLock`` instance
@@ -253,7 +253,7 @@ class TestJLock(unittest.TestCase):
         mock_exists.assert_called_once()
         mock_open.assert_called_once()
         mock_util.pid_exists.assert_not_called()
-        mock_rm.assert_not_called()
+        mock_rm.assert_called_once()
         mock_op.assert_called_once()
         mock_wr.assert_called_once()
 
@@ -264,7 +264,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.write')
     @mock.patch('os.remove')
     @mock.patch('pylink.jlock.psutil')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_old_pid(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests acquiring when the PID in the lockfile does not exist.
 

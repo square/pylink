@@ -47,9 +47,11 @@ class ThreadReturn(threading.Thread):
         Returns:
           ``None``
         """
-        target = self._Thread__target
+        target = getattr(self, '_Thread__target', getattr(self, '_target', None))
+        args = getattr(self, '_Thread__args', getattr(self, '_args', None))
+        kwargs = getattr(self, '_Thread__kwargs', getattr(self, '_kwargs', None))
         if target is not None:
-            self._return = target(*self._Thread__args, **self._Thread__kwargs)
+            self._return = target(*args, **kwargs)
 
         return None
 

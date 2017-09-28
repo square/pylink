@@ -18,8 +18,12 @@ import pylink.__main__ as main
 import logging
 import mock
 
-import StringIO
+try:
+    import StringIO
+except ImportError:
+    import io as StringIO
 import ctypes
+import sys
 import unittest
 
 
@@ -112,7 +116,10 @@ class TestMain(unittest.TestCase):
             main.main(['--version'])
 
         expected = 'pylink %s' % pylink.__version__
-        self.assertEqual(expected, mock_stderr.getvalue().strip())
+        if sys.version_info >= (3, 0):
+            self.assertEqual(expected, mock_stdout.getvalue().strip())
+        else:
+            self.assertEqual(expected, mock_stderr.getvalue().strip())
 
     @mock.patch('pylink.__main__.logging.basicConfig')
     @mock.patch('sys.stderr', new_callable=StringIO.StringIO)
@@ -254,6 +261,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual('Self-test succeeded.', mock_stdout.getvalue().strip())
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         mocked.test.return_value = False
         self.assertEqual(0, main.main(args))
@@ -276,14 +284,14 @@ class TestMain(unittest.TestCase):
         """
         usb_device = pylink.JLinkConnectInfo()
         usb_device.SerialNumber = 123456789
-        usb_device.acProduct = 'J-Trace CM'
+        usb_device.acProduct = b'J-Trace CM'
         usb_device.Connection = 1
 
         ip_device = pylink.JLinkConnectInfo()
         ip_device.SerialNumber = 987654321
-        ip_device.acProduct = 'J-Link PRO'
-        ip_device.Nickname = 'J-Link PRO'
-        ip_device.acFWString = 'J-Link PRO compiled Mon. Nov. 7th 13:56:44'
+        ip_device.acProduct = b'J-Link PRO'
+        ip_device.Nickname = b'J-Link PRO'
+        ip_device.acFWString = b'J-Link PRO compiled Mon. Nov. 7th 13:56:44'
         ip_device.Connection = 0
 
         mocked = mock.Mock()
@@ -297,6 +305,7 @@ class TestMain(unittest.TestCase):
         self.assertTrue('Product Name: J-Link PRO' in mock_stdout.getvalue())
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         args = ['emulator', '--list', 'usb']
         mocked.connected_emulators.return_value = [usb_device]
@@ -307,6 +316,7 @@ class TestMain(unittest.TestCase):
         self.assertFalse('Product Name: J-Link PRO' in mock_stdout.getvalue())
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         args = ['emulator', '--list', 'ip']
         mocked.connected_emulators.return_value = [ip_device]
@@ -334,7 +344,7 @@ class TestMain(unittest.TestCase):
         mocked = mock.Mock()
         mock_jlink.return_value = mocked
 
-        name = (ctypes.c_char * 10)(*'CANADA')
+        name = (ctypes.c_char * 10)(*b'CANADA')
         device = pylink.JLinkDeviceInfo()
         device.sName = name
 
@@ -346,6 +356,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual('USA is not supported :(', mock_stdout.getvalue().strip())
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         args = ['emulator', '-s', 'CANADA']
         self.assertEqual(0, main.main(args))
@@ -439,6 +450,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(0, mocked.update_firmware.call_count)
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         # Firmware is older, so we can upgrade.
         mocked.firmware_outdated.return_value = True
@@ -474,6 +486,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(0, mocked.update_firmware.call_count)
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         # Firmware is newer, so we can downgrade.
         mocked.firmware_newer.return_value = True
@@ -540,6 +553,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual('Successfully unlocked device!', mock_stdout.getvalue().strip())
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         mock_unlock.return_value = False
         self.assertEqual(0, main.main(args))
@@ -620,6 +634,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual('Successfully added license.', mock_stdout.getvalue().strip())
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         mocked.add_license.return_value = False
         self.assertEqual(0, main.main(args))
@@ -629,7 +644,7 @@ class TestMain(unittest.TestCase):
     @mock.patch('sys.stdout', new_callable=StringIO.StringIO)
     @mock.patch('pylink.__main__.pylink.JLink')
     def test_license_erase_command(self, mock_jlink, mock_stdout, mock_stderr):
-        """
+        """Tests the command for erasing licenses.
 
         Args:
           self (TestMain): the ``TestMain`` instance
@@ -650,6 +665,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual('Successfully erased all custom licenses.', mock_stdout.getvalue().strip())
 
         mock_stdout.truncate(0)
+        mock_stdout.seek(0)
 
         mocked.erase_licenses.return_value = False
         self.assertEqual(0, main.main(args))

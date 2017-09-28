@@ -34,6 +34,8 @@ class TestLibrary(unittest.TestCase):
         Returns:
           ``None``
         """
+        assertRaisesRegexp = getattr(self, 'assertRaisesRegexp', None)
+        self.assertRaisesRegexp = getattr(self, 'assertRaisesRegex', assertRaisesRegexp)
         self.lib_path = '/'
 
     def tearDown(self):
@@ -49,7 +51,7 @@ class TestLibrary(unittest.TestCase):
         """
         pass
 
-    def mock_directories(self, mock_os, structure, sep, walk_base=None):
+    def mock_directories(self, mock_os, structure, sep):
         """Mocks a directory structure.
 
         This function is used to mock a directory structure, so that checking
@@ -110,22 +112,22 @@ class TestLibrary(unittest.TestCase):
 
         def mock_walk(b):
             r = list()
+            dirname = b
+            if not isdir(dirname):
+                return []
 
-            def subwalk(b):
-                if isdir(b):
-                    subdirs = list(set([d for d in listdir(b) if isdir(join(b, d))]))
-                    subfiles = [f for f in listdir(b) if isfile(join(b, f))]
-                    r.append((b, subdirs, subfiles))
-                    for s in subdirs:
-                        subwalk(join(b, s))
-            subwalk(b)
-            return iter(r)
+            subdirs = filter(len, list(set([d for d in listdir(dirname) if isdir(join(dirname, d))])))
+            subfiles = filter(len, list(set([f for f in listdir(dirname) if isfile(join(dirname, f))])))
+            r.append((dirname, subdirs, subfiles))
+            for subdir in subdirs:
+                r.extend(mock_walk(join(dirname, subdir)))
 
-        # Rather than mocking the walk function, create a genertor and set that as the return value of walk
-        mock_os.walk.return_value = mock_walk(walk_base) if walk_base else iter(list())
+            return r
+
+        mock_os.walk.return_value = mock_walk(sep)
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
@@ -153,7 +155,7 @@ class TestLibrary(unittest.TestCase):
         mock_load_library.assert_called_once()
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
@@ -184,7 +186,7 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(0, mock_load_library.call_count)
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
@@ -213,7 +215,7 @@ class TestLibrary(unittest.TestCase):
         mock_load_library.assert_called_once()
 
     @mock.patch('sys.platform', new='windows')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
@@ -250,7 +252,7 @@ class TestLibrary(unittest.TestCase):
         mock_windll.LoadLibrary.assert_called_once()
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
@@ -294,7 +296,7 @@ class TestLibrary(unittest.TestCase):
 
     @mock.patch('sys.platform', new='darwin')
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
-    @mock.patch('__builtin__.open', new=mock.MagicMock())
+    @mock.patch('pylink.library.open', new=mock.MagicMock())
     @mock.patch('pylink.library.ctypes')
     @mock.patch('os.remove')
     def test_unload_no_library(self, mock_remove, mock_ctypes):
@@ -318,7 +320,7 @@ class TestLibrary(unittest.TestCase):
 
     @mock.patch('sys.platform', new='windows')
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
-    @mock.patch('__builtin__.open', new=mock.MagicMock())
+    @mock.patch('pylink.library.open', new=mock.MagicMock())
     @mock.patch('pylink.library.ctypes')
     @mock.patch('os.remove')
     def test_unload_windows(self, mock_remove, mock_ctypes):
@@ -342,7 +344,7 @@ class TestLibrary(unittest.TestCase):
 
     @mock.patch('sys.platform', new='darwin')
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
-    @mock.patch('__builtin__.open', new=mock.MagicMock())
+    @mock.patch('pylink.library.open', new=mock.MagicMock())
     @mock.patch('pylink.library.ctypes')
     @mock.patch('os.remove')
     def test_unload_darwin(self, mock_remove, mock_ctypes):
@@ -367,7 +369,7 @@ class TestLibrary(unittest.TestCase):
 
     @mock.patch('sys.platform', new='linux2')
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
-    @mock.patch('__builtin__.open', new=mock.MagicMock())
+    @mock.patch('pylink.library.open', new=mock.MagicMock())
     @mock.patch('pylink.library.ctypes')
     @mock.patch('os.remove')
     def test_unload_linux(self, mock_remove, mock_ctypes):
@@ -393,7 +395,7 @@ class TestLibrary(unittest.TestCase):
         mock_ctypes.cdll.LoadLibrary.assert_called_with('libdl.so')
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
@@ -426,14 +428,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(0xDEADBEEF, lib.dll())
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_darwin_4_98_e(self, mock_os, mock_load_library, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V4.98E-.
+        """Tests finding the DLL on Darwin through the SEGGER application for V4.98E-.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -460,14 +462,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(1, mock_load_library.call_count)
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_darwin_5_0_0(self, mock_os, mock_load_library, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V5.0.0+.
+        """Tests finding the DLL on Darwin through the SEGGER application for V5.0.0+.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -495,14 +497,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(1, mock_load_library.call_count)
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_darwin_6_0_0(self, mock_os, mock_load_library, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V6.0.0+.
+        """Tests finding the DLL on Darwin through the SEGGER application for V6.0.0+.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -529,14 +531,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(1, mock_load_library.call_count)
 
     @mock.patch('sys.platform', new='darwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_darwin_empty(self, mock_os, mock_load_library, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V6.0.0+.
+        """Tests finding the DLL on Darwin through the SEGGER application for V6.0.0+.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -563,14 +565,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(0, mock_load_library.call_count)
 
     @mock.patch('sys.platform', new='windows')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('pylink.library.ctypes')
     @mock.patch('pylink.library.os')
     def test_windows_4_98_e(self, mock_os, mock_ctypes, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V4.98E-.
+        """Tests finding the DLL on Windows through the SEGGER application for V4.98E-.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -607,14 +609,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='windows')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('pylink.library.ctypes')
     @mock.patch('pylink.library.os')
     def test_windows_5_10_0(self, mock_os, mock_ctypes, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V5.0.0+.
+        """Tests finding the DLL on Windows through the SEGGER application for V5.0.0+.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -651,14 +653,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='windows')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('pylink.library.ctypes')
     @mock.patch('pylink.library.os')
     def test_windows_jlinkarm(self, mock_os, mock_ctypes, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER JLinkARM folder.
+        """Tests finding the DLL on Windows through the SEGGER JLinkARM folder.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -695,14 +697,14 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='windows')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('pylink.library.ctypes')
     @mock.patch('pylink.library.os')
     def test_windows_empty(self, mock_os, mock_ctypes, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V6.0.0+.
+        """Tests finding the DLL on Windows through the SEGGER application for V6.0.0+.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -740,7 +742,7 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(0, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='cygwin')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
@@ -777,14 +779,14 @@ class TestLibrary(unittest.TestCase):
 
     @mock.patch('sys.platform', new='linux')
     @mock.patch('pylink.util.is_os_64bit', return_value=False)
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_linux_4_98_e(self, mock_os, mock_load_library, mock_find_library, mock_open, mock_is_os_64bit):
-        """Tests finding the DLL through the SEGGER application for V4.98E-.
+        """Tests finding the DLL on Linux through the SEGGER application for V4.98E-.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -799,39 +801,25 @@ class TestLibrary(unittest.TestCase):
         mock_find_library.return_value = None
         directories = [
             '/opt/SEGGER/JLink_Linux_V498e_i386/libjlinkarm.so',
-            '/opt/SEGGER/JLink/JLink_Linux_V498e_i386/libjlinkarm.so',
         ]
 
-        self.mock_directories(mock_os, directories, '/', '/opt/SEGGER')
+        self.mock_directories(mock_os, directories, '/')
 
-        num_expected_calls = 0
         lib = library.Library()
-        num_expected_calls += 1
         lib.unload = mock.Mock()
         load_library_args, load_libary_kwargs = mock_load_library.call_args
-        self.assertEqual(lib._path, directories[0])
-
-        # Call again, and verify that the next path is loaded
-        lib = library.Library()
-        num_expected_calls += 1
-        lib.unload = mock.Mock()
-
-        self.assertEqual(lib._path, directories[1])
-
-        mock_find_library.assert_has_calls(num_expected_calls * [mock.call(library.Library.JLINK_SDK_NAME)])
-        self.assertEqual(num_expected_calls, mock_find_library.call_count)
-        self.assertEqual(num_expected_calls, mock_load_library.call_count)
+        self.assertEqual(directories[0], lib._path)
 
     @mock.patch('sys.platform', new='linux2')
     @mock.patch('pylink.util.is_os_64bit', return_value=False)
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_linux_6_10_0_32bit(self, mock_os, mock_load_library, mock_find_library, mock_open, mock_is_os_64bit):
-        """Tests finding the DLL through the SEGGER application for V6.0.0+ on 32 bit linux.
+        """Tests finding the DLL on Linux through the SEGGER application for V6.0.0+ on 32 bit linux.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -848,40 +836,36 @@ class TestLibrary(unittest.TestCase):
         directories = [
             '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm_x86.so.6.10',
             '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm.so.6.10',
-            '/opt/SEGGER/JLink/JLink_Linux_V610d_x86_64/libjlinkarm_x86.so.6.10',
-            '/opt/SEGGER/JLink/JLink_Linux_V610d_x86_64/libjlinkarm.so.6.10'
         ]
 
-        self.mock_directories(mock_os, directories, '/', '/opt/SEGGER')
-        # Verify that the first path is loaded
-        num_expected_calls = 0
+        self.mock_directories(mock_os, directories, '/')
+
         lib = library.Library()
-        num_expected_calls += 1
         lib.unload = mock.Mock()
         load_library_args, load_libary_kwargs = mock_load_library.call_args
-        self.assertEqual(lib._path, directories[2])
+        self.assertEqual(directories[0], lib._path)
 
-        # Call again, and verify that the next path is loaded
+        directories = [
+            '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm.so.6.10',
+        ]
+
+        self.mock_directories(mock_os, directories, '/')
+
         lib = library.Library()
-        num_expected_calls += 1
         lib.unload = mock.Mock()
-
-        self.assertEqual(lib._path, directories[0])
-
-        mock_find_library.assert_has_calls(num_expected_calls * [mock.call(library.Library.JLINK_SDK_NAME)])
-        self.assertEqual(num_expected_calls, mock_find_library.call_count)
-        self.assertEqual(num_expected_calls, mock_load_library.call_count)
+        load_library_args, load_libary_kwargs = mock_load_library.call_args
+        self.assertEqual(None, lib._path)
 
     @mock.patch('sys.platform', new='linux2')
     @mock.patch('pylink.util.is_os_64bit', return_value=True)
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_linux_6_10_0_64bit(self, mock_os, mock_load_library, mock_find_library, mock_open, mock_is_os_64bit):
-        """Tests finding the DLL through the SEGGER application for V6.0.0+ on 64 bit linux.
+        """Tests finding the DLL on Linux through the SEGGER application for V6.0.0+ on 64 bit linux.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -898,39 +882,34 @@ class TestLibrary(unittest.TestCase):
         directories = [
             '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm_x86.so.6.10',
             '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm.so.6.10',
-            '/opt/SEGGER/JLink/JLink_Linux_V610d_x86_64/libjlinkarm_x86.so.6.10',
-            '/opt/SEGGER/JLink/JLink_Linux_V610d_x86_64/libjlinkarm.so.6.10'
         ]
 
-        self.mock_directories(mock_os, directories, '/', '/opt/SEGGER')
-        # Verify that the first path is loaded
-        num_expected_calls = 0
+        self.mock_directories(mock_os, directories, '/')
+
         lib = library.Library()
-        num_expected_calls += 1
         lib.unload = mock.Mock()
         load_library_args, load_libary_kwargs = mock_load_library.call_args
-        self.assertEqual(lib._path, directories[3])
+        self.assertEqual(directories[1], lib._path)
 
-        # Call again, and verify that the next path is loaded
+        directories = [
+            '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm_x86.so.6.10',
+        ]
+
+        self.mock_directories(mock_os, directories, '/')
+
         lib = library.Library()
-        num_expected_calls += 1
         lib.unload = mock.Mock()
-
-        self.assertEqual(lib._path, directories[1])
-
-        mock_find_library.assert_has_calls(num_expected_calls * [mock.call(library.Library.JLINK_SDK_NAME)])
-        self.assertEqual(num_expected_calls, mock_find_library.call_count)
-        self.assertEqual(num_expected_calls, mock_load_library.call_count)
+        self.assertEqual(None, lib._path)
 
     @mock.patch('sys.platform', new='linux')
-    @mock.patch('__builtin__.open')
+    @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     @mock.patch('pylink.library.os')
     def test_linux_empty(self, mock_os, mock_load_library, mock_find_library, mock_open):
-        """Tests finding the DLL through the SEGGER application for V6.0.0+.
+        """Tests finding the DLL on Linux through the SEGGER application for V6.0.0+.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
