@@ -4,7 +4,6 @@ cache: pip
 
 os:
   - linux
-  - osx
 
 python:
   - '2.7'
