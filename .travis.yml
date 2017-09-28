@@ -2,16 +2,22 @@ language: python
 
 cache: pip
 
+os:
+  - linux
+  - osx
+
 python:
-- '2.7'
+  - '2.7'
+  - '3.6'
+  - '3.7-dev' # 3.7 development branch
 
 install:
-- pip install -r requirements.txt
-- pip install pypandoc
+  - pip install -r requirements.txt
+  - pip install pypandoc
 
 script:
-- pycodestyle .
-- python setup.py test
+  - pycodestyle .
+  - python setup.py test
 
 deploy:
   provider: pypi
