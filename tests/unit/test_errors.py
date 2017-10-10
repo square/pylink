@@ -57,7 +57,7 @@ class TestErrors(unittest.TestCase):
         """
         message = 'message'
         exception = errors.JLinkException(message)
-        self.assertTrue(isinstance(exception.message, basestring))
+        self.assertTrue(isinstance(exception.message, str))
         self.assertEqual(message, exception.message)
         self.assertEqual(None, getattr(exception, 'code', None))
 
@@ -72,7 +72,7 @@ class TestErrors(unittest.TestCase):
         """
         code = -1
         exception = errors.JLinkException(code)
-        self.assertTrue(isinstance(exception.message, basestring))
+        self.assertTrue(isinstance(exception.message, str))
         self.assertEqual('Unspecified error.', exception.message)
         self.assertEqual(code, getattr(exception, 'code', None))
 

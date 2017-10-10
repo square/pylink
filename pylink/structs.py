@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import enums
+from . import enums
 
 import ctypes
 
@@ -79,7 +79,7 @@ class JLinkConnectInfo(ctypes.Structure):
           connection that it has (one of USB or IP).
         """
         conn = 'USB' if self.Connection == 1 else 'IP'
-        return '%s <Serial No. %s, Conn. %s>' % (self.acProduct, self.SerialNumber, conn)
+        return '%s <Serial No. %s, Conn. %s>' % (self.acProduct.decode(), self.SerialNumber, conn)
 
 
 class JLinkFlashArea(ctypes.Structure):
@@ -213,7 +213,7 @@ class JLinkDeviceInfo(ctypes.Structure):
         Returns:
           Device name.
         """
-        return ctypes.cast(self.sName, ctypes.c_char_p).value
+        return ctypes.cast(self.sName, ctypes.c_char_p).value.decode()
 
     @property
     def manufacturer(self):
@@ -225,7 +225,8 @@ class JLinkDeviceInfo(ctypes.Structure):
         Returns:
           Manufacturer name.
         """
-        return ctypes.cast(self.sManu, ctypes.c_char_p).value
+        buf = ctypes.cast(self.sManu, ctypes.c_char_p).value
+        return buf.decode() if buf else None
 
 
 class JLinkHardwareStatus(ctypes.Structure):
@@ -309,7 +310,7 @@ class JLinkGPIODescriptor(ctypes.Structure):
         Returns:
           GPIO name.
         """
-        return self.acName
+        return self.acName.decode()
 
 
 class JLinkMemoryZone(ctypes.Structure):
@@ -576,7 +577,7 @@ class JLinkMOEInfo(ctypes.Structure):
           A string representation of the instance.
         """
         d = enums.JLinkHaltReasons.__dict__
-        s = next(k for k, v in d.iteritems() if v == self.HaltReason)
+        s = next(k for k, v in d.items() if v == self.HaltReason)
         if self.dbgrq():
             return s
         return s.replace('_', ' ').title()

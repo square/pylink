@@ -106,11 +106,11 @@ class JLock(object):
                 if not psutil.pid_exists(pid):
                     os.remove(self.path)
 
-            except ValueError:
-                # Pidfile is invalid, so ignore it.
-                pass
+            except ValueError as e:
+                # Pidfile is invalid, so just delete it.
+                os.remove(self.path)
 
-            except IOError:
+            except IOError as e:
                 # Something happened while trying to read/remove the file, so
                 # skip trying to read/remove it.
                 pass
@@ -120,7 +120,8 @@ class JLock(object):
 
             # PID is written to the file, so that if a process exits wtihout
             # cleaning up the lockfile, we can still acquire the lock.
-            os.write(self.fd, '%s%s' % (os.getpid(), os.linesep))
+            to_write = '%s%s' % (os.getpid(), os.linesep)
+            os.write(self.fd, to_write.encode())
 
         except OSError as e:
             if not os.path.exists(self.path):

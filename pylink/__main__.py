@@ -17,6 +17,7 @@ import pylink
 import argparse
 import logging
 import os
+import six
 import sys
 
 
@@ -48,7 +49,7 @@ class CommandMeta(type):
         return newClass
 
 
-class Command(object):
+class Command(six.with_metaclass(CommandMeta)):
     """Base command-class.
 
     All commands should inherit from this class.
@@ -58,8 +59,6 @@ class Command(object):
       description: command description string.
       help: command help string.
     """
-    __metaclass__ = CommandMeta
-
     name = None
     description = None
     help = None
@@ -427,13 +426,13 @@ class EmulatorCommand(Command):
                 if index > 0:
                     print('')
 
-                print('Product Name: %s' % emulator.acProduct)
+                print('Product Name: %s' % emulator.acProduct.decode())
                 print('Serial Number: %s' % emulator.SerialNumber)
 
                 usb = bool(emulator.Connection)
                 if not usb:
-                    print('Nickname: %s' % emulator.acNickname)
-                    print('Firmware: %s' % emulator.acFWString)
+                    print('Nickname: %s' % emulator.acNickname.decode())
+                    print('Firmware: %s' % emulator.acFWString.decode())
 
                 print('Connection: %s' % ('USB' if usb else 'IP'))
 
@@ -547,7 +546,7 @@ def create_parser():
                                      epilog=pylink.__copyright__)
     parser.add_argument('--version', action='version',
                         version='%(prog)s ' + pylink.__version__)
-    parser.add_argument('-v', '--verbose', action='count',
+    parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='increase output verbosity')
 
     kwargs = {}

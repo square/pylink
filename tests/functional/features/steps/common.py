@@ -249,7 +249,7 @@ def step_flash_firmware_bytestream_retries(context, retries):
 
     assert retries >= 0
 
-    written = map(int, jlink.memory_read8(0, len(data)))
+    written = list(map(int, jlink.memory_read8(0, len(data))))
     assert written == data
 
 

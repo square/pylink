@@ -35,7 +35,8 @@ class TestUnlockKinetis(unittest.TestCase):
         Returns:
           `None`
         """
-        pass
+        assertRaisesRegexp = getattr(self, 'assertRaisesRegexp', None)
+        self.assertRaisesRegexp = getattr(self, 'assertRaisesRegex', assertRaisesRegexp)
 
     def tearDown(self):
         """Called after each test.
@@ -64,7 +65,7 @@ class TestUnlockKinetis(unittest.TestCase):
         mock_jlink = mock.Mock()
         mock_jlink.connected.return_value = False
 
-        with self.assertRaisesRegexp(ValueError, 'No target'):
+        with self.assertRaises(ValueError):
             unlock.unlock_kinetis(mock_jlink)
 
     def test_unlock_kinetis_unsupported_tif(self):

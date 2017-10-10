@@ -58,7 +58,7 @@ class TestStructs(unittest.TestCase):
         """
         info = structs.JLinkConnectInfo()
         info.SerialNumber = 3042517899
-        info.acProduct = 'J-Link Plus'
+        info.acProduct = str.encode('J-Link Plus')
         info.Connection = 1
 
         info_string = 'J-Link Plus <Serial No. %s, Conn. USB>' % (info.SerialNumber)
@@ -116,13 +116,13 @@ class TestStructs(unittest.TestCase):
         info = structs.JLinkDeviceInfo()
         self.assertEqual(info.SizeofStruct, ctypes.sizeof(info))
 
-        name = 'A Feast For Crows'
+        name = b'A Feast For Crows'
         info.sName = ctypes.cast(name, ctypes.POINTER(ctypes.c_char))
-        self.assertEqual(name, info.name)
+        self.assertEqual(name.decode(), info.name)
 
-        manufacturer = 'G.R.R. Martin'
+        manufacturer = b'G.R.R. Martin'
         info.sManu = ctypes.cast(manufacturer, ctypes.POINTER(ctypes.c_char))
-        self.assertEqual(manufacturer, info.manufacturer)
+        self.assertEqual(manufacturer.decode(), info.manufacturer)
 
         info_string = 'A Feast For Crows <Core Id. 0, Manu. G.R.R. Martin>'
         self.assertEqual(info_string, str(info))
@@ -155,7 +155,7 @@ class TestStructs(unittest.TestCase):
         """
         name = 'Samuel L. Jackson'
         gpio = structs.JLinkGPIODescriptor()
-        gpio.acName = name
+        gpio.acName = name.encode()
 
         self.assertEqual(name, str(gpio))
         self.assertEqual('JLinkGPIODescriptor(%s)' % name, repr(gpio))
@@ -169,8 +169,8 @@ class TestStructs(unittest.TestCase):
         Returns:
           ``None``
         """
-        name = 'Futurama'
-        desc = 'A show about future stuff'
+        name = b'Futurama'
+        desc = b'A show about future stuff'
         addr = 0xdeadbeef
 
         memory_zone = structs.JLinkMemoryZone()

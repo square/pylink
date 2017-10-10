@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import binpacker
-import decorators
-import enums
-import errors
-import jlock
-import library
-import structs
-import unlockers
-import util
+from . import binpacker
+from . import decorators
+from . import enums
+from . import errors
+from . import jlock
+from . import library
+from . import structs
+from . import unlockers
+from . import util
 
 import ctypes
 import datetime
@@ -268,10 +268,10 @@ class JLink(object):
         self._dll.JLINKARM_GetCompileDateTime.restype = ctypes.POINTER(ctypes.c_char)
         self._dll.JLINKARM_GetRegisterName.restype = ctypes.POINTER(ctypes.c_char)
 
-        self.error_handler = error or logger.error
-        self.warning_handler = warn or logger.warning
-        self.log_handler = log or logger.info
-        self.detailed_log_handler = detailed_log or logger.debug
+        self.error_handler = lambda s: (error or logger.error)(s.decode())
+        self.warning_handler = lambda s: (warn or logger.warning)(s.decode())
+        self.log_handler = lambda s: (log or logger.info)(s.decode())
+        self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode())
 
         self._initialized = True
 
@@ -546,7 +546,7 @@ class JLink(object):
         if ip_addr is not None:
             addr, port = ip_addr.split(':')
             if serial_no is None:
-                result = self._dll.JLINKARM_SelectIP(addr, int(port))
+                result = self._dll.JLINKARM_SelectIP(addr.encode(), int(port))
                 if result == 1:
                     raise errors.JLinkException('Could not connect to emulator at %s.' % ip_addr)
             else:
@@ -578,7 +578,7 @@ class JLink(object):
         result = self._dll.JLINKARM_OpenEx(self.log_handler, self.error_handler)
         result = ctypes.cast(result, ctypes.c_char_p).value
         if result is not None:
-            raise errors.JLinkException(result)
+            raise errors.JLinkException(result.decode())
 
         # Configuration of the J-Link DLL.  These are configuration steps that
         # have to be done after 'open()'.  The unsecure hook is only supported
@@ -734,8 +734,8 @@ class JLink(object):
           `UM08001 <https://www.segger.com/downloads/jlink>`__.
         """
         err_buf = (ctypes.c_char * self.MAX_BUF_SIZE)()
-        res = self._dll.JLINKARM_ExecCommand(cmd, err_buf, self.MAX_BUF_SIZE)
-        err_buf = ctypes.string_at(err_buf)
+        res = self._dll.JLINKARM_ExecCommand(cmd.encode(), err_buf, self.MAX_BUF_SIZE)
+        err_buf = ctypes.string_at(err_buf).decode()
 
         if len(err_buf) > 0:
             # This is how they check for error in the documentation, so check
@@ -867,7 +867,7 @@ class JLink(object):
         if not perform_tif_init:
             config_string = config_string + ('PerformTIFInit=0;')
 
-        res = self._dll.JLINKARM_CORESIGHT_Configure(config_string)
+        res = self._dll.JLINKARM_CORESIGHT_Configure(config_string.encode())
         if res < 0:
             raise errors.JLinkException(res)
 
@@ -969,7 +969,7 @@ class JLink(object):
           Datetime string.
         """
         result = self._dll.JLINKARM_GetCompileDateTime()
-        return ctypes.cast(result, ctypes.c_char_p).value
+        return ctypes.cast(result, ctypes.c_char_p).value.decode()
 
     @property
     def version(self):
@@ -1010,11 +1010,11 @@ class JLink(object):
         identifier = self.firmware_version.split('compiled')[0]
         buf_size = self.MAX_BUF_SIZE
         buf = (ctypes.c_char * buf_size)()
-        res = self._dll.JLINKARM_GetEmbeddedFWString(identifier, buf, buf_size)
+        res = self._dll.JLINKARM_GetEmbeddedFWString(identifier.encode(), buf, buf_size)
         if res < 0:
             raise errors.JLinkException(res)
 
-        return ctypes.string_at(buf)
+        return ctypes.string_at(buf).decode()
 
     @open_required
     def firmware_outdated(self):
@@ -1150,7 +1150,7 @@ class JLink(object):
         """
         buf = (ctypes.c_char * self.MAX_BUF_SIZE)()
         self._dll.JLINKARM_GetFirmwareString(buf, self.MAX_BUF_SIZE)
-        return ctypes.string_at(buf)
+        return ctypes.string_at(buf).decode()
 
     @property
     @open_required
@@ -1211,7 +1211,7 @@ class JLink(object):
         buf = (ctypes.c_char * self.MAX_BUF_SIZE)()
         self._dll.JLINKARM_GetFeatureString(buf)
 
-        result = ctypes.string_at(buf).strip()
+        result = ctypes.string_at(buf).decode().strip()
         if len(result) == 0:
             return list()
 
@@ -1230,7 +1230,7 @@ class JLink(object):
         """
         buf = (ctypes.c_char * self.MAX_BUF_SIZE)()
         self._dll.JLINKARM_EMU_GetProductName(buf, self.MAX_BUF_SIZE)
-        return ctypes.string_at(buf)
+        return ctypes.string_at(buf).decode()
 
     @property
     @open_required
@@ -1265,7 +1265,7 @@ class JLink(object):
         if res != 0:
             raise errors.JLinkException('Failed to grab OEM string.')
 
-        oem = ctypes.string_at(buf)
+        oem = ctypes.string_at(buf).decode()
         if len(oem) == 0:
             # In the case that the product is an original SEGGER product, then
             # the OEM string is the empty string, so there is no OEM.
@@ -1387,7 +1387,7 @@ class JLink(object):
         res = self._dll.JLINK_GetAvailableLicense(buf, buf_size)
         if res < 0:
             raise errors.JLinkException(res)
-        return ctypes.string_at(buf)
+        return ctypes.string_at(buf).decode()
 
     @property
     @open_required
@@ -1405,7 +1405,7 @@ class JLink(object):
         result = self._dll.JLINK_EMU_GetLicenses(buf, self.MAX_BUF_SIZE)
         if result < 0:
             raise errors.JLinkException(result)
-        return ctypes.string_at(buf)
+        return ctypes.string_at(buf).decode()
 
     @open_required
     @minimum_required('4.98b')
@@ -1427,7 +1427,7 @@ class JLink(object):
           licenses, while older versions of 80 bytes.
         """
         buf_size = len(contents)
-        buf = (ctypes.c_char * (buf_size + 1))(*contents)
+        buf = (ctypes.c_char * (buf_size + 1))(*contents.encode())
 
         res = self._dll.JLINK_EMU_AddLicense(buf)
 
@@ -2018,7 +2018,7 @@ class JLink(object):
             pass
 
         # Program the target.
-        bytes_flashed = self._dll.JLINK_DownloadFile(path, addr)
+        bytes_flashed = self._dll.JLINK_DownloadFile(path.encode(), addr)
         if bytes_flashed < 0:
             raise errors.JLinkFlashException(bytes_flashed)
 
@@ -2175,7 +2175,7 @@ class JLink(object):
         buf_size = self.MAX_BUF_SIZE
         buf = (ctypes.c_char * buf_size)()
         self._dll.JLINKARM_Core2CoreName(self.core_cpu(), buf, buf_size)
-        return ctypes.string_at(buf)
+        return ctypes.string_at(buf).decode()
 
     @connection_required
     def ir_len(self):
@@ -2263,7 +2263,7 @@ class JLink(object):
           Name of the register.
         """
         result = self._dll.JLINKARM_GetRegisterName(register_index)
-        return ctypes.cast(result, ctypes.c_char_p).value
+        return ctypes.cast(result, ctypes.c_char_p).value.decode()
 
     @connection_required
     def cpu_speed(self, silent=False):
@@ -2702,7 +2702,7 @@ class JLink(object):
         method = self._dll.JLINKARM_ReadMemEx
         if zone is not None:
             method = self._dll.JLINKARM_ReadMemZonedEx
-            args.append(zone)
+            args.append(zone.encode())
 
         units_read = method(*args)
         if units_read < 0:
@@ -2846,7 +2846,7 @@ class JLink(object):
         method = self._dll.JLINKARM_WriteMemEx
         if zone is not None:
             method = self._dll.JLINKARM_WriteMemZonedEx
-            args.append(zone)
+            args.append(zone.encode())
 
         units_written = method(*args)
         if units_written < 0:
@@ -3433,7 +3433,7 @@ class JLink(object):
             flags = enums.JLinkBreakpoint.ANY
         else:
             flags = list(f for i, f in enumerate(flags) if set_flags[i])
-            flags = reduce(operator.__or__, flags, 0)
+            flags = functools.reduce(operator.__or__, flags, 0)
 
         return self._dll.JLINKARM_GetNumBPUnits(flags)
 
@@ -3848,7 +3848,7 @@ class JLink(object):
         if res < 0:
             raise errors.JLinkException('Failed to disassemble instruction.')
 
-        return ctypes.string_at(buf)
+        return ctypes.string_at(buf).decode()
 
 ###############################################################################
 #
@@ -3877,7 +3877,7 @@ class JLink(object):
             raise ValueError('Invalid port width: %s' % str(port_width))
 
         config_string = 'PortWidth=%d' % port_width
-        res = self._dll.JLINK_STRACE_Config(config_string)
+        res = self._dll.JLINK_STRACE_Config(config_string.encode())
         if res < 0:
             raise errors.JLinkException('Failed to configure STRACE port')
 

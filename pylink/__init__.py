@@ -24,9 +24,9 @@ __long_description__ = '''This module provides a Python implementation of the
 J-Link SDK by leveraging the SDK's DLL.
 '''
 
-from enums import *
-from errors import *
-from jlink import *
-from library import *
-from structs import *
-from unlockers import *
+from .enums import *
+from .errors import *
+from .jlink import *
+from .library import *
+from .structs import *
+from .unlockers import *

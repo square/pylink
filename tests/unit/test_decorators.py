@@ -65,9 +65,6 @@ class TestDecorators(unittest.TestCase):
         with self.assertRaises(TypeError):
             foo(callback='callback')
 
-        with self.assertRaises(AttributeError):
-            decorators.async(4)
-
     def test_async_decorator_sync_call(self):
         """Tests that we can call the decorated method synchronously.
 
@@ -135,7 +132,7 @@ class TestDecorators(unittest.TestCase):
 
         exception = self.callback.call_args[0][0]
         self.assertTrue(isinstance(exception, BaseException))
-        self.assertEqual('I HAVE FAILED!', exception.message)
+        self.assertEqual('I HAVE FAILED!', str(exception))
 
         res = self.callback.call_args[0][1]
         self.assertEqual(None, res)

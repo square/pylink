@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pylink.decorators as decorators
-import pylink.enums as enums
-import pylink.protocols.swd as swd
-import pylink.registers as registers
+from .. import decorators
+from .. import enums
+from ..protocols import swd
+from .. import registers
 
 import collections
 import time

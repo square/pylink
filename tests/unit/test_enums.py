@@ -69,7 +69,7 @@ class TestEnums(unittest.TestCase):
 
         for i in range(-274, -255):
             error_message = enums.JLinkGlobalErrors.to_string(i)
-            self.assertTrue(isinstance(error_message, basestring))
+            self.assertTrue(isinstance(error_message, str))
 
     def test_jlink_global_errors_unspecified(self):
         """Tests the unspecified error case.
@@ -93,7 +93,7 @@ class TestEnums(unittest.TestCase):
           ``None``
         """
         error_message = enums.JLinkWriteErrors.to_string(-5)
-        self.assertTrue(isinstance(error_message, basestring))
+        self.assertTrue(isinstance(error_message, str))
 
         error_message = enums.JLinkWriteErrors.to_string(-1)
         self.assertEqual('Unspecified error.', error_message)
@@ -108,7 +108,7 @@ class TestEnums(unittest.TestCase):
           ``None``
         """
         error_message = enums.JLinkReadErrors.to_string(-5)
-        self.assertTrue(isinstance(error_message, basestring))
+        self.assertTrue(isinstance(error_message, str))
 
         error_message = enums.JLinkReadErrors.to_string(-1)
         self.assertEqual('Unspecified error.', error_message)
@@ -129,7 +129,7 @@ class TestEnums(unittest.TestCase):
 
         for error_code in error_codes:
             error_message = enums.JLinkDataErrors.to_string(error_code)
-            self.assertTrue(isinstance(error_message, basestring))
+            self.assertTrue(isinstance(error_message, str))
 
         error_message = enums.JLinkDataErrors.to_string(-1)
         self.assertEqual('Unspecified error.', error_message)
@@ -145,7 +145,7 @@ class TestEnums(unittest.TestCase):
         """
         for i in range(-4, -1):
             error_message = enums.JLinkFlashErrors.to_string(i)
-            self.assertTrue(isinstance(error_message, basestring))
+            self.assertTrue(isinstance(error_message, str))
 
         error_message = enums.JLinkFlashErrors.to_string(-1)
         self.assertEqual('Unspecified error.', error_message)
@@ -161,7 +161,7 @@ class TestEnums(unittest.TestCase):
         """
         for i in range(-5, -4):
             error_message = enums.JLinkEraseErrors.to_string(i)
-            self.assertTrue(isinstance(error_message, basestring))
+            self.assertTrue(isinstance(error_message, str))
 
         error_message = enums.JLinkEraseErrors.to_string(-1)
         self.assertEqual('Unspecified error.', error_message)

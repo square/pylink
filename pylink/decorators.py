@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import threads
+from . import threads
 
 import functools
 
@@ -77,7 +77,7 @@ def async(func):
             exception, res = None, None
             try:
                 res = func(*args, **kwargs)
-            except Exception, e:
+            except Exception as e:
                 exception = e
             return callback(exception, res)
 
