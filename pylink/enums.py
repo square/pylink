@@ -683,3 +683,16 @@ class JLinkROMTable(object):
     APBAP = 0x10D
     AHBAP = 0x10E
     SECURE = 0x10F
+
+class JLinkRTTCommand(object):
+    """RTT commands."""
+    START = 0
+    STOP = 1
+    GETDESC = 2
+    GETNUMBUF = 3
+    GETSTAT = 4
+
+class JLinkRTTDirection(object):
+    """RTT Direction."""
+    UP = 0
+    DOWN = 1

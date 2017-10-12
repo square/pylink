@@ -5370,6 +5370,141 @@ class TestJLink(unittest.TestCase):
         self.assertTrue(isinstance(res, list))
         self.assertEqual(num_bytes, len(res))
 
+    def test_rtt_start_calls_rtt_control_with_START_command(self):
+        """Tests that rtt_start calls RTTERMINAL_Control with start command.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+
+        self.jlink.rtt_start()
+        actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
+        self.assertEqual(enums.JLinkRTTCommand.START, actual[0])
+        self.assertIsNone(actual[1])
+
+    def test_rtt_stop_calls_rtt_control_with_STOP_command(self):
+        """Tests that rtt_stop calls RTTERMINAL_Control with stop command.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+
+        self.jlink.rtt_stop()
+        actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
+        self.assertEqual(enums.JLinkRTTCommand.STOP, actual[0])
+        self.assertIsNone(actual[1])
+
+    def test_rtt_get_num_up_buffers_calls_control_with_cmd_and_dir(self):
+        """Tests that rtt_get_num_up_buffers calls RTTERMINAL_Control.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+
+        self.jlink.rtt_get_num_up_buffers()
+        actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
+        self.assertEqual(enums.JLinkRTTCommand.GETNUMBUF, actual[0])
+        self.assertEqual(enums.JLinkRTTDirection.UP, actual[1]._obj.value)
+
+    def test_rtt_get_num_up_buffers_returns_result_from_control(self):
+        """Tests that rtt_get_num_up_buffers returns RTTERMINAL_Control.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+
+        expected = 2345
+        self.dll.JLINK_RTTERMINAL_Control.return_value = expected
+        actual = self.jlink.rtt_get_num_up_buffers()
+        self.assertEqual(actual, expected)
+
+    def test_rtt_get_num_down_buffers_calls_control_with_cmd_and_dir(self):
+        """Tests that rtt_get_num_down_buffers calls RTTERMINAL_Control.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+
+        self.jlink.rtt_get_num_down_buffers()
+        actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
+        self.assertEqual(enums.JLinkRTTCommand.GETNUMBUF, actual[0])
+        self.assertEqual(enums.JLinkRTTDirection.DOWN, actual[1]._obj.value)
+
+    def test_rtt_get_num_down_buffers_returns_result_from_control(self):
+        """Tests that rtt_get_num_down_buffers returns RTTERMINAL_Control.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+
+        expected = 2345
+        self.dll.JLINK_RTTERMINAL_Control.return_value = expected
+        actual = self.jlink.rtt_get_num_down_buffers()
+        self.assertEqual(actual, expected)
+
+    def test_rtt_control_forwards_command_to_RTTERMINAL_Control(self):
+        """Tests that rtt_control forwards the command to RTT.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 1234
+        self.jlink.rtt_control(expected, None)
+        actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0][0]
+        self.assertEqual(actual, expected)
+
+    def test_rtt_control_forwards_none_config_to_RTTERMINAL_Control(self):
+        """Tests that a None config value is forwarded to RTTERMINAL_Control.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.jlink.rtt_control(0, None)
+        self.assertIsNone(self.dll.JLINK_RTTERMINAL_Control.call_args[0][1])
+
+    def test_rtt_control_wraps_config_in_byref_before_calling_Control(self):
+        """Tests that non-None configs get wrapped in ctypes.byref.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 1234
+        config = ctypes.c_int(expected)
+        self.jlink.rtt_control(0, config)
+        actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0][1]
+        self.assertIs(type(actual), type(ctypes.byref(ctypes.c_int())))
+        self.assertEqual(actual._obj.value, expected)
+
+    def test_rtt_control_raises_error_if_RTTERMINAL_Control_fails(self):
+        """Tests that a JLinkException is raised if RTTERMINAL_Control fails.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINK_RTTERMINAL_Control.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.rtt_control(0, None)
+
     def test_rtt_read_forwards_buffer_index_to_RTTERMINAL_Read(self):
         """Tests that rtt_read calls RTTERMINAL_Read with the supplied index.
         Args:
