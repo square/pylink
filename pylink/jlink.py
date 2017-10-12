@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 class JLink(object):
     """Python interface for the SEGGER J-Link.
 
-    This is a wrapper around the J-Link C SDK to provide a Pythonic interface
+    This is a wrapper around the J-Link C SDK to provide a Python interface
     to it.  The shared library is loaded and used to call the SDK methods.
     """
 
