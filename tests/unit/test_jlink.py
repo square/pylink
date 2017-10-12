@@ -5593,7 +5593,7 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        expected = 1234;
+        expected = 1234
         self.dll.JLINK_RTTERMINAL_Write.return_value = expected
         actual = self.jlink.rtt_write(0, [])
         self.assertEqual(actual, expected)
