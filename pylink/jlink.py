@@ -4733,7 +4733,7 @@ class JLink(object):
           self (JLink): the ``JLink`` instance
 
         Raises:
-          JLinkException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
 
         self.rtt_control(enums.JLinkRTTCommand.START, None)
@@ -4745,7 +4745,7 @@ class JLink(object):
           self (JLink): the ``JLink`` instance
 
         Raises:
-          JLinkException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
 
         self.rtt_control(enums.JLinkRTTCommand.STOP, None)
@@ -4760,7 +4760,7 @@ class JLink(object):
           The number of configured up buffers on the target.
 
         Raises:
-          JLinkException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
 
         cmd = enums.JLinkRTTCommand.GETNUMBUF
@@ -4777,7 +4777,7 @@ class JLink(object):
           The number of configured down buffers on the target.
 
         Raises:
-          JLinkException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
 
         cmd = enums.JLinkRTTCommand.GETNUMBUF
@@ -4803,14 +4803,14 @@ class JLink(object):
           A list of bytes read from RTT.
 
         Raises:
-          JLinkException if the underlying JLINK_RTTERMINAL_Read call fails.
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Read call fails.
         """
 
         buf = (ctypes.c_ubyte * num_bytes)()
         bytes_read = self._dll.JLINK_RTTERMINAL_Read(buffer_index, buf, num_bytes)
 
         if bytes_read < 0:
-            raise errors.JLinkException(bytes_read)
+            raise errors.JLinkRTTException(bytes_read)
 
         return list(buf)[:bytes_read]
 
@@ -4830,7 +4830,7 @@ class JLink(object):
           The number of bytes successfully written to the RTT buffer.
 
         Raises:
-          JLinkException if the underlying JLINK_RTTERMINAL_Write call fails.
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Write call fails.
         """
 
         buf_size = len(data)
@@ -4838,7 +4838,7 @@ class JLink(object):
         bytes_written = self._dll.JLINK_RTTERMINAL_Write(buffer_index, buf, buf_size)
 
         if bytes_written < 0:
-            raise errors.JLinkException(bytes_written)
+            raise errors.JLinkRTTException(bytes_written)
 
         return bytes_written
 
@@ -4862,7 +4862,7 @@ class JLink(object):
         res = self._dll.JLINK_RTTERMINAL_Control(command, config_byref)
 
         if res < 0:
-            raise errors.JLinkException(res)
+            raise errors.JLinkRTTException(res)
 
         return res
 

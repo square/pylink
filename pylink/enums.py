@@ -239,6 +239,29 @@ class JLinkDataErrors(JLinkGlobalErrors):
             return 'Invalid flags passed for the access mask.'
         return super(JLinkDataErrors, cls).to_string(error_code)
 
+class JLinkRTTErrors(JLinkGlobalErrors):
+    """Enumeration for error codes from RTT."""
+
+    RTT_ERROR_CONTROL_BLOCK_NOT_FOUND = -2
+
+    @classmethod
+    def to_string(cls, error_code):
+        """Returns the string message for the given error code.
+
+        Args:
+          cls (JLinkRTTErrors): the ``JLinkRTTErrors`` class
+          error_code (int): error code to convert
+
+        Returns:
+          An error string corresponding to the error code.
+
+        Raises:
+          ValueError: if the error code is invalid.
+        """
+        if error_code == cls.RTT_ERROR_CONTROL_BLOCK_NOT_FOUND:
+          return 'The RTT Control Block has not yet been found (wait?)'
+        return super(JLinkRTTErrors, cls).to_string(error_code)
+
 
 class JLinkHost(object):
     """Enumeration for the different JLink hosts: currently only IP and USB."""
