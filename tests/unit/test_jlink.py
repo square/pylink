@@ -5379,6 +5379,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
 
+        self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_start()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
         self.assertEqual(enums.JLinkRTTCommand.START, actual[0])
@@ -5393,6 +5394,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
 
+        self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_stop()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
         self.assertEqual(enums.JLinkRTTCommand.STOP, actual[0])
@@ -5407,6 +5409,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
 
+        self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_get_num_up_buffers()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
         self.assertEqual(enums.JLinkRTTCommand.GETNUMBUF, actual[0])
@@ -5435,6 +5438,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
 
+        self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_get_num_down_buffers()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
         self.assertEqual(enums.JLinkRTTCommand.GETNUMBUF, actual[0])
@@ -5463,6 +5467,7 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         expected = 1234
+        self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_control(expected, None)
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0][0]
         self.assertEqual(actual, expected)
@@ -5475,6 +5480,7 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
+        self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_control(0, None)
         self.assertIsNone(self.dll.JLINK_RTTERMINAL_Control.call_args[0][1])
 
@@ -5488,6 +5494,7 @@ class TestJLink(unittest.TestCase):
         """
         expected = 1234
         config = ctypes.c_int(expected)
+        self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_control(0, config)
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0][1]
         self.assertIs(type(actual), type(ctypes.byref(ctypes.c_int())))
@@ -5579,7 +5586,7 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        expected = '\x00\x01\x02\x03'
+        expected = b'\x00\x01\x02\x03'
         self.dll.JLINK_RTTERMINAL_Write.return_value = 0
         self.jlink.rtt_write(0, expected)
         actual = bytearray(self.dll.JLINK_RTTERMINAL_Write.call_args[0][1])
@@ -5595,7 +5602,7 @@ class TestJLink(unittest.TestCase):
         """
         expected = 1234
         self.dll.JLINK_RTTERMINAL_Write.return_value = expected
-        actual = self.jlink.rtt_write(0, [])
+        actual = self.jlink.rtt_write(0, b'')
         self.assertEqual(actual, expected)
 
     def test_rtt_write_raises_exception_if_RTTERMINAL_Write_fails(self):

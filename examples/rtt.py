@@ -1,7 +1,12 @@
 import pylink
 import sys
-import thread
 import time
+from builtins import input
+
+try:
+  import thread
+except ImportError:
+  import _thread as thread
 
 
 def read_rtt(jlink):
@@ -21,7 +26,7 @@ def read_rtt(jlink):
 def write_rtt(jlink):
     try:
         while jlink.connected():
-            bytes = list(bytearray(raw_input()) + b"\x0A" + b"\x00")
+            bytes = list(bytearray(input(), "utf-8") + b"\x0A\x00")
             bytes_written = jlink.rtt_write(0, bytes)
     except Exception:
         print("IO write thread exception, exiting...")
