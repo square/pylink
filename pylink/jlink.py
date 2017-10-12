@@ -4719,3 +4719,60 @@ class JLink(object):
         bytes_read = self._dll.JLINKARM_SWO_ReadStimulus(port, buf, buf_size)
 
         return list(buf)[:bytes_read]
+
+    @connection_required
+    def rtt_read(self, buffer_index, num_bytes):
+        """Reads data from the RTT buffer.
+
+        This method will read at most num_bytes bytes from the specified
+        RTT buffer. The data is automatically removed from the RTT buffer.
+        If there are not num_bytes bytes waiting in the RTT buffer, the
+        entire contents of the RTT buffer will be read.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): the index of the RTT buffer to read from
+          num_bytes (int): the maximum number of bytes to read
+
+        Returns:
+          A list of bytes read from RTT.
+
+        Raises:
+          JLinkException if the underlying JLINK_RTTERMINAL_Read call fails.
+        """
+
+        buf = (ctypes.c_ubyte * num_bytes)()
+        bytes_read = self._dll.JLINK_RTTERMINAL_Read(buffer_index, buf, num_bytes)
+
+        if bytes_read < 0:
+            raise errors.JLinkException(bytes_read)
+
+        return list(buf)[:bytes_read]
+
+    @connection_required
+    def rtt_write(self, buffer_index, data):
+        """Writes data to the RTT buffer.
+
+        This method will write at most len(data) bytes to the specified RTT
+        buffer.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): the index of the RTT buffer to write to
+          data (list): the list of bytes to write to the RTT buffer
+
+        Returns:
+          The number of bytes successfully written to the RTT buffer.
+
+        Raises:
+          JLinkException if the underlying JLINK_RTTERMINAL_Write call fails.
+        """
+
+        buf_size = len(data)
+        buf = (ctypes.c_ubyte * buf_size)(*bytearray(data))
+        bytes_written = self._dll.JLINK_RTTERMINAL_Write(buffer_index, buf, buf_size)
+
+        if bytes_written < 0:
+            raise errors.JLinkException(bytes_written)
+
+        return bytes_written

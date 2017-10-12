@@ -5370,6 +5370,111 @@ class TestJLink(unittest.TestCase):
         self.assertTrue(isinstance(res, list))
         self.assertEqual(num_bytes, len(res))
 
+    def test_rtt_read_forwards_buffer_index_to_RTTERMINAL_Read(self):
+        """Tests that rtt_read calls RTTERMINAL_Read with the supplied index.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 3
+        self.dll.JLINK_RTTERMINAL_Read.return_value = 0
+        self.jlink.rtt_read(expected, 0)
+        self.assertEqual(self.dll.JLINK_RTTERMINAL_Read.call_args[0][0], expected)
+
+    def test_rtt_read_returns_partial_payload_when_underfilled(self):
+        """Tests that rtt_read returns fewer bytes than requested when not full.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        num_bytes = 16
+        actual_bytes = 5
+        self.dll.JLINK_RTTERMINAL_Read.return_value = actual_bytes
+        res = self.jlink.rtt_read(0, num_bytes)
+        self.assertEqual(len(res), actual_bytes)
+
+    def test_rtt_read_returns_list_sized_from_RTTERMINAL_Read(self):
+        """Tests that rtt_read returns however many bytes were read from RTT.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 123
+        self.dll.JLINK_RTTERMINAL_Read.return_value = expected
+        res = self.jlink.rtt_read(0, expected)
+        self.assertEqual(len(res), expected)
+
+    def test_rtt_read_raises_exception_if_RTTERMINAL_Read_fails(self):
+        """Tests that rtt_read raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINK_RTTERMINAL_Read.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.rtt_read(0, 0)
+
+    def test_rtt_write_forwards_buffer_index_to_RTTERMINAL_Write(self):
+        """Tests that rtt_write calls RTTERMINAL_Write with the supplied index.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 89
+        self.dll.JLINK_RTTERMINAL_Write.return_value = 0
+        self.jlink.rtt_write(expected, [])
+        self.assertEqual(self.dll.JLINK_RTTERMINAL_Write.call_args[0][0], expected)
+
+    def test_rtt_write_converts_byte_list_to_ctype_array(self):
+        """Tests that rtt_write converts the provided byte list to ctype.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = '\x00\x01\x02\x03'
+        self.dll.JLINK_RTTERMINAL_Write.return_value = 0
+        self.jlink.rtt_write(0, expected)
+        actual = bytearray(self.dll.JLINK_RTTERMINAL_Write.call_args[0][1])
+        self.assertEqual(actual, expected)
+
+    def test_rtt_write_returns_result_from_RTTERMINAL_Write(self):
+        """Tests that rtt_write returns whatever value RTTERMINAL_Write returns.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 1234;
+        self.dll.JLINK_RTTERMINAL_Write.return_value = expected
+        actual = self.jlink.rtt_write(0, [])
+        self.assertEqual(actual, expected)
+
+    def test_rtt_write_raises_exception_if_RTTERMINAL_Write_fails(self):
+        """Tests that rtt_write raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINK_RTTERMINAL_Write.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.rtt_write(0, [])
+
 
 if __name__ == '__main__':
     unittest.main()
