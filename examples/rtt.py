@@ -4,9 +4,9 @@ import time
 from builtins import input
 
 try:
-  import thread
+    import thread
 except ImportError:
-  import _thread as thread
+    import _thread as thread
 
 
 def read_rtt(jlink):
