@@ -239,6 +239,7 @@ class JLinkDataErrors(JLinkGlobalErrors):
             return 'Invalid flags passed for the access mask.'
         return super(JLinkDataErrors, cls).to_string(error_code)
 
+
 class JLinkRTTErrors(JLinkGlobalErrors):
     """Enumeration for error codes from RTT."""
 
@@ -259,7 +260,7 @@ class JLinkRTTErrors(JLinkGlobalErrors):
           ValueError: if the error code is invalid.
         """
         if error_code == cls.RTT_ERROR_CONTROL_BLOCK_NOT_FOUND:
-          return 'The RTT Control Block has not yet been found (wait?)'
+            return 'The RTT Control Block has not yet been found (wait?)'
         return super(JLinkRTTErrors, cls).to_string(error_code)
 
 
@@ -707,6 +708,7 @@ class JLinkROMTable(object):
     AHBAP = 0x10E
     SECURE = 0x10F
 
+
 class JLinkRTTCommand(object):
     """RTT commands."""
     START = 0
@@ -714,6 +716,7 @@ class JLinkRTTCommand(object):
     GETDESC = 2
     GETNUMBUF = 3
     GETSTAT = 4
+
 
 class JLinkRTTDirection(object):
     """RTT Direction."""

@@ -4784,7 +4784,6 @@ class JLink(object):
         dir = ctypes.c_int(enums.JLinkRTTDirection.DOWN)
         return self.rtt_control(cmd, dir)
 
-
     @open_required
     def rtt_read(self, buffer_index, num_bytes):
         """Reads data from the RTT buffer.
@@ -4865,5 +4864,3 @@ class JLink(object):
             raise errors.JLinkRTTException(res)
 
         return res
-
-
