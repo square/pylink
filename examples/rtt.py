@@ -59,8 +59,6 @@ def main(target_device):
     print("ctrl-c detected, exiting...")
     pass
 
-  del jlink
-
 
 if __name__ == "__main__":
   sys.exit(main(sys.argv[1]))
