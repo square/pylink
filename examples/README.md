@@ -51,3 +51,12 @@ Prints the endian mode of the target hardware.
 
 #### Description
 Tool for updating J-Links on a Windows platform.
+
+
+### Real Time Transfer (RTT)
+
+#### Source
+[RTT](./rtt.py)
+
+#### Description
+Tool for a simple command-line terminal that communicates over RTT.

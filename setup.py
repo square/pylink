@@ -192,10 +192,12 @@ class BDDTestCommand(setuptools.Command):
             original_dir = os.getcwd()
             os.chdir(d)
 
+            output = ''
             try:
                 output = subprocess.check_output('make', shell=True, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
-                sys.stdout.write('Captured Output:%s%s%s' % (os.linesep, output, os.linesep))
+                if output:
+                    sys.stdout.write('Captured Output:%s%s%s' % (os.linesep, output, os.linesep))
                 os.chdir(original_dir)
                 raise e
 
@@ -253,7 +255,8 @@ setuptools.setup(
 
     # Dependencies.
     install_requires=[
-        'psutil >= 5.2.2'
+        'psutil >= 5.2.2',
+        'future'
     ],
 
     # Tests

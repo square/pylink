@@ -65,3 +65,8 @@ class JLinkReadException(enums.JLinkReadErrors, JLinkException):
 class JLinkDataException(enums.JLinkDataErrors, JLinkException):
     """J-Link data event exception."""
     pass
+
+
+class JLinkRTTException(enums.JLinkRTTErrors, JLinkException):
+    """J-Link RTT exception."""
+    pass

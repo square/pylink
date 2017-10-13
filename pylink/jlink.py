@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 class JLink(object):
     """Python interface for the SEGGER J-Link.
 
-    This is a wrapper around the J-Link C SDK to provide a Pythonic interface
+    This is a wrapper around the J-Link C SDK to provide a Python interface
     to it.  The shared library is loaded and used to call the SDK methods.
     """
 
@@ -4719,3 +4719,141 @@ class JLink(object):
         bytes_read = self._dll.JLINKARM_SWO_ReadStimulus(port, buf, buf_size)
 
         return list(buf)[:bytes_read]
+
+###############################################################################
+#
+# Real Time Terminal (RTT) API
+#
+###############################################################################
+
+    @open_required
+    def rtt_start(self):
+        """Starts RTT processing, including background read of target data.
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Raises:
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+        """
+        self.rtt_control(enums.JLinkRTTCommand.START, None)
+
+    @open_required
+    def rtt_stop(self):
+        """Stops RTT on the J-Link and host side.
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Raises:
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+        """
+        self.rtt_control(enums.JLinkRTTCommand.STOP, None)
+
+    @open_required
+    def rtt_get_num_up_buffers(self):
+        """After starting RTT, get the current number of up buffers.
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          The number of configured up buffers on the target.
+
+        Raises:
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+        """
+        cmd = enums.JLinkRTTCommand.GETNUMBUF
+        dir = ctypes.c_int(enums.JLinkRTTDirection.UP)
+        return self.rtt_control(cmd, dir)
+
+    @open_required
+    def rtt_get_num_down_buffers(self):
+        """After starting RTT, get the current number of down buffers.
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          The number of configured down buffers on the target.
+
+        Raises:
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+        """
+        cmd = enums.JLinkRTTCommand.GETNUMBUF
+        dir = ctypes.c_int(enums.JLinkRTTDirection.DOWN)
+        return self.rtt_control(cmd, dir)
+
+    @open_required
+    def rtt_read(self, buffer_index, num_bytes):
+        """Reads data from the RTT buffer.
+
+        This method will read at most num_bytes bytes from the specified
+        RTT buffer. The data is automatically removed from the RTT buffer.
+        If there are not num_bytes bytes waiting in the RTT buffer, the
+        entire contents of the RTT buffer will be read.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): the index of the RTT buffer to read from
+          num_bytes (int): the maximum number of bytes to read
+
+        Returns:
+          A list of bytes read from RTT.
+
+        Raises:
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Read call fails.
+        """
+        buf = (ctypes.c_ubyte * num_bytes)()
+        bytes_read = self._dll.JLINK_RTTERMINAL_Read(buffer_index, buf, num_bytes)
+
+        if bytes_read < 0:
+            raise errors.JLinkRTTException(bytes_read)
+
+        return list(buf)[:bytes_read]
+
+    @open_required
+    def rtt_write(self, buffer_index, data):
+        """Writes data to the RTT buffer.
+
+        This method will write at most len(data) bytes to the specified RTT
+        buffer.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): the index of the RTT buffer to write to
+          data (list): the list of bytes to write to the RTT buffer
+
+        Returns:
+          The number of bytes successfully written to the RTT buffer.
+
+        Raises:
+          JLinkRTTException if the underlying JLINK_RTTERMINAL_Write call fails.
+        """
+        buf_size = len(data)
+        buf = (ctypes.c_ubyte * buf_size)(*bytearray(data))
+        bytes_written = self._dll.JLINK_RTTERMINAL_Write(buffer_index, buf, buf_size)
+
+        if bytes_written < 0:
+            raise errors.JLinkRTTException(bytes_written)
+
+        return bytes_written
+
+    @open_required
+    def rtt_control(self, command, config):
+        """Issues an RTT Control command.
+
+        All RTT control is done through a single API call which expects
+        specifically laid-out configuration structures.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          command (int): the command to issue (see enums.JLinkRTTCommand)
+          config (ctypes type): the configuration to pass by reference.
+
+        Returns:
+          An integer containing the result of the command.
+        """
+        config_byref = ctypes.byref(config) if config is not None else None
+        res = self._dll.JLINK_RTTERMINAL_Control(command, config_byref)
+
+        if res < 0:
+            raise errors.JLinkRTTException(res)
+
+        return res
