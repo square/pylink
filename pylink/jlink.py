@@ -4735,7 +4735,6 @@ class JLink(object):
         Raises:
           JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
-
         self.rtt_control(enums.JLinkRTTCommand.START, None)
 
     @open_required
@@ -4747,7 +4746,6 @@ class JLink(object):
         Raises:
           JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
-
         self.rtt_control(enums.JLinkRTTCommand.STOP, None)
 
     @open_required
@@ -4762,7 +4760,6 @@ class JLink(object):
         Raises:
           JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
-
         cmd = enums.JLinkRTTCommand.GETNUMBUF
         dir = ctypes.c_int(enums.JLinkRTTDirection.UP)
         return self.rtt_control(cmd, dir)
@@ -4779,7 +4776,6 @@ class JLink(object):
         Raises:
           JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
         """
-
         cmd = enums.JLinkRTTCommand.GETNUMBUF
         dir = ctypes.c_int(enums.JLinkRTTDirection.DOWN)
         return self.rtt_control(cmd, dir)
@@ -4804,7 +4800,6 @@ class JLink(object):
         Raises:
           JLinkRTTException if the underlying JLINK_RTTERMINAL_Read call fails.
         """
-
         buf = (ctypes.c_ubyte * num_bytes)()
         bytes_read = self._dll.JLINK_RTTERMINAL_Read(buffer_index, buf, num_bytes)
 
@@ -4831,7 +4826,6 @@ class JLink(object):
         Raises:
           JLinkRTTException if the underlying JLINK_RTTERMINAL_Write call fails.
         """
-
         buf_size = len(data)
         buf = (ctypes.c_ubyte * buf_size)(*bytearray(data))
         bytes_written = self._dll.JLINK_RTTERMINAL_Write(buffer_index, buf, buf_size)
@@ -4856,7 +4850,6 @@ class JLink(object):
         Returns:
           An integer containing the result of the command.
         """
-
         config_byref = ctypes.byref(config) if config is not None else None
         res = self._dll.JLINK_RTTERMINAL_Control(command, config_byref)
 

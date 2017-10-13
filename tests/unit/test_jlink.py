@@ -5378,7 +5378,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-
         self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_start()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
@@ -5393,7 +5392,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-
         self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_stop()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
@@ -5408,7 +5406,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-
         self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_get_num_up_buffers()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
@@ -5423,7 +5420,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-
         expected = 2345
         self.dll.JLINK_RTTERMINAL_Control.return_value = expected
         actual = self.jlink.rtt_get_num_up_buffers()
@@ -5437,7 +5433,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-
         self.dll.JLINK_RTTERMINAL_Control.return_value = 0
         self.jlink.rtt_get_num_down_buffers()
         actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
@@ -5452,7 +5447,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-
         expected = 2345
         self.dll.JLINK_RTTERMINAL_Control.return_value = expected
         actual = self.jlink.rtt_get_num_down_buffers()
