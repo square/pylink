@@ -80,7 +80,6 @@ def write_rtt(jlink):
     Raises:
       Exception on error.
     """
-
     try:
         while jlink.connected():
             bytes = list(bytearray(input(), "utf-8") + b"\x0A\x00")
