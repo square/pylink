@@ -255,7 +255,8 @@ setuptools.setup(
 
     # Dependencies.
     install_requires=[
-        'psutil >= 5.2.2'
+        'psutil >= 5.2.2',
+        'future'
     ],
 
     # Tests
