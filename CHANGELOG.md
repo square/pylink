@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.0.7]
+
+### Added
+
+- @charlesnicholson: Added support for for RTT.
+  - `rtt_stop`
+  - `rtt_read`
+  - `rtt_write`
+  - `rtt_get_num_up_buffers`
+  - `rtt_get_num_down_buffers`
+  - `rtt_control`
+
 ## [0.0.6]
 
 ### Changed
