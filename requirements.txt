@@ -7,3 +7,4 @@ sphinx == 1.4.8
 sphinx-argparse == 0.1.15
 sphinx_rtd_theme == 0.1.10a0
 sphinxcontrib-napoleon == 0.5.3
+wheel

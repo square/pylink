@@ -17,6 +17,7 @@ install:
 script:
   - pycodestyle .
   - python setup.py test
+  - python setup.py bdist_wheel
 
 deploy:
   provider: pypi
@@ -26,6 +27,7 @@ deploy:
   on:
     branch: master
     tags: true
+  distributions: "sdist bdist_wheel"
 
 addons:
   apt:
