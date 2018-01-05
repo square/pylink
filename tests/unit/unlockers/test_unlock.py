@@ -76,7 +76,7 @@ class TestUnlock(unittest.TestCase):
           `None`
         """
         jlink = mock.Mock()
-        supported = ['Kinetis', 'kinetis']
+        supported = ['Kinetis', 'kinetis', 'NXP']
         mock_unlock.return_value = True
         for mcu in supported:
             self.assertTrue(unlock.unlock(jlink, mcu))
