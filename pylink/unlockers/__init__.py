@@ -31,6 +31,6 @@ def unlock(jlink, name):
     Raises:
       NotImplementedError: if no unlock method exists for the MCU.
     """
-    if name.lower() == 'kinetis' or name.lower() == 'freescale':
+    if name.lower() in ['kinetis', 'freescale', 'nxp']:
         return unlock_kinetis(jlink)
     raise NotImplementedError('No unlock method for %s' % name)
