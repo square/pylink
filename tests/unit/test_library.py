@@ -367,7 +367,6 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(None, lib._lib)
         self.assertEqual(None, lib._temp)
 
-
     @mock.patch('sys.platform', new='darwin')
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
