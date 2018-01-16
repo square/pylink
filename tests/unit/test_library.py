@@ -347,8 +347,8 @@ class TestLibrary(unittest.TestCase):
     @mock.patch('pylink.library.open', new=mock.MagicMock())
     @mock.patch('pylink.library.ctypes')
     @mock.patch('os.remove')
-    def test_unload_darwin(self, mock_remove, mock_ctypes):
-        """Tests unloading the library on a Darwin platform.
+    def test_unload_darwin_linux(self, mock_remove, mock_ctypes):
+        """Tests unloading the library on Darwin and Linux platforms.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
@@ -366,33 +366,6 @@ class TestLibrary(unittest.TestCase):
 
         self.assertEqual(None, lib._lib)
         self.assertEqual(None, lib._temp)
-
-    @mock.patch('sys.platform', new='linux2')
-    @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
-    @mock.patch('pylink.library.open', new=mock.MagicMock())
-    @mock.patch('pylink.library.ctypes')
-    @mock.patch('os.remove')
-    def test_unload_linux(self, mock_remove, mock_ctypes):
-        """Tests unloading the library on a Linux platform.
-
-        Args:
-          self (TestLibrary): the ``TestLibrary`` instance
-          mock_remove (Mock): the mocked call to ``os.remove()``
-          mock_ctypes (Mock): mocked ``ctypes`` module
-
-        Returns:
-          ``None``
-        """
-        lib = library.Library('')
-
-        self.assertTrue(lib.unload())
-
-        mock_remove.assert_called_once()
-
-        self.assertEqual(None, lib._lib)
-        self.assertEqual(None, lib._temp)
-
-        mock_ctypes.cdll.LoadLibrary.assert_called_with('libdl.so')
 
     @mock.patch('sys.platform', new='darwin')
     @mock.patch('pylink.library.open')
