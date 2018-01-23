@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 
+## [0.0.10]
+
+### Changed
+
+- @MarekNovakNXP: Fixed casting of `swd_read32` to properly handle reading
+  32-bit register when MSB is set.
+- @sstallion: Fixed casting of `swd_read8`, and `swd_read16` to properly handle
+  reading 32-bit register when MSB is set.
+
 ## [0.0.9]
 
 ### Changed
