@@ -2416,7 +2416,8 @@ class JLink(object):
         Returns:
           The integer read from the input buffer.
         """
-        return abs(self._dll.JLINK_SWD_GetU32(offset))
+        value = self._dll.JLINK_SWD_GetU32(offset)
+        return ctypes.c_ulong(value).value
 
     @interface_required(enums.JLinkInterfaces.SWD)
     @connection_required
