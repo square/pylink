@@ -1,4 +1,4 @@
-# Copyright 2017 Square, Inc.
+# Copyright 2018 Square, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2388,7 +2388,8 @@ class JLink(object):
         Returns:
           The integer read from the input buffer.
         """
-        return self._dll.JLINK_SWD_GetU8(offset)
+        value = self._dll.JLINK_SWD_GetU8(offset)
+        return ctypes.c_uint8(value).value
 
     @interface_required(enums.JLinkInterfaces.SWD)
     @connection_required
@@ -2402,7 +2403,8 @@ class JLink(object):
         Returns:
           The integer read from the input buffer.
         """
-        return self._dll.JLINK_SWD_GetU16(offset)
+        value = self._dll.JLINK_SWD_GetU16(offset)
+        return ctypes.c_uint16(value).value
 
     @interface_required(enums.JLinkInterfaces.SWD)
     @connection_required
@@ -2417,7 +2419,7 @@ class JLink(object):
           The integer read from the input buffer.
         """
         value = self._dll.JLINK_SWD_GetU32(offset)
-        return ctypes.c_ulong(value).value
+        return ctypes.c_uint32(value).value
 
     @interface_required(enums.JLinkInterfaces.SWD)
     @connection_required
