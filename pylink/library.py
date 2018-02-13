@@ -114,12 +114,9 @@ class Library(object):
 
                 # Find all the versioned J-Link directories.
                 ds = filter(lambda x: x.startswith('JLink'), os.listdir(dir_path))
-                for jlink_dir in ds:
-                    # The DLL always has the same name, so if it is found, just
-                    # return it.
-                    lib_path = os.path.join(dir_path, jlink_dir, dll)
-                    if os.path.isfile(lib_path):
-                        yield lib_path
+                lib_path = os.path.join(dir_path, ds[-1], dll) # use the latest jlink DLL (ds[-1])
+                if os.path.isfile(lib_path):
+                    yield lib_path
 
     @classmethod
     def find_library_linux(cls):
