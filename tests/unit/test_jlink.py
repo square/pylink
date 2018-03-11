@@ -1,4 +1,4 @@
-# Copyright 2017 Square, Inc.
+# Copyright 2018 Square, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -270,6 +270,8 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(enums.JLinkInterfaces.JTAG, my_jlink.tif)
 
         my_jlink._tif = enums.JLinkInterfaces.SWD
+
+        self.dll.JLINK_SWD_GetU8.return_value = 0
         my_jlink.swd_read8(0)
 
     def test_jlink_opened(self):

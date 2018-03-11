@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [0.0.10]
+
+### Changed
+
+- @MarekNovakNXP: Fixed casting of `swd_read32` to properly handle reading
+  32-bit register when MSB is set.
+- @sstallion: Fixed casting of `swd_read8`, and `swd_read16` to properly handle
+  reading 32-bit register when MSB is set.
+
+## [0.0.9]
+
+### Changed
+
+- @charlesnicholson: fixed non-deterministic crash on Linux when unloading DLL.
+
 ## [0.0.8]
 
 ### Changed
