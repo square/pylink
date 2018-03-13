@@ -1931,7 +1931,7 @@ class JLink(object):
         return res
 
     @connection_required
-    def flash(self, data, addr, on_progress=None, flags=0):
+    def flash(self, data, addr, on_progress=None, power_on=False, flags=0):
         """Flashes the target device.
 
         The given ``on_progress`` callback will be called as
@@ -1944,6 +1944,7 @@ class JLink(object):
           data (list): list of bytes to write to flash
           addr (int): start address on flash which to write the data
           on_progress (function): callback to be triggered on flash progress
+          power_on (boolean): whether to power the target before flashing
           flags (int): reserved, do not use
 
         Returns:
@@ -1964,7 +1965,8 @@ class JLink(object):
             self._dll.JLINK_SetFlashProgProgressCallback(0)
 
         # First power on the device.
-        self.power_on()
+        if power_on:
+            self.power_on()
 
         try:
             # Stop the target before flashing.  This is required to be in a
@@ -1979,7 +1981,7 @@ class JLink(object):
         return res
 
     @connection_required
-    def flash_file(self, path, addr, on_progress=None):
+    def flash_file(self, path, addr, on_progress=None, power_on=False):
         """Flashes the target device.
 
         The given ``on_progress`` callback will be called as
@@ -1992,6 +1994,7 @@ class JLink(object):
           path (str): absolute path to the source file to flash
           addr (int): start address on flash which to write the data
           on_progress (function): callback to be triggered on flash progress
+          power_on (boolean): whether to power the target before flashing
 
         Returns:
           Integer value greater than or equal to zero.  Has no significance.
@@ -2007,7 +2010,8 @@ class JLink(object):
             self._dll.JLINK_SetFlashProgProgressCallback(0)
 
         # First power on the device.
-        self.power_on()
+        if power_on:
+            self.power_on()
 
         try:
             # Stop the target before flashing.  This is required to be in a
