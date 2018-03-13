@@ -378,17 +378,10 @@ class Library(object):
                 self._winlib = None
 
                 unloaded = True
-            elif sys.platform.startswith('darwin'):
-                # On Mac systems, it is safe to just delete the shared library.
-                del self._lib
-                self._lib = None
-                unloaded = True
             else:
-                # On Linux we have to use dlclose to ensure that the DLL is
-                # cleaned up before removing it.
-                libdl = ctypes.cdll.LoadLibrary('libdl.so')
-                libdl.dlclose(self._lib._handle)
-                del libdl
+                # On OSX and Linux, just release the library; it's not safe
+                # to close a dll that ctypes is using.
+                del self._lib
                 self._lib = None
                 unloaded = True
 
