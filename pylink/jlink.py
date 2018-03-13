@@ -1931,7 +1931,7 @@ class JLink(object):
         return res
 
     @connection_required
-    def flash(self, data, addr, on_progress=None, power_on=True, flags=0):
+    def flash(self, data, addr, on_progress=None, power_on=False, flags=0):
         """Flashes the target device.
 
         The given ``on_progress`` callback will be called as
@@ -1981,7 +1981,7 @@ class JLink(object):
         return res
 
     @connection_required
-    def flash_file(self, path, addr, on_progress=None, power_on=True):
+    def flash_file(self, path, addr, on_progress=None, power_on=False):
         """Flashes the target device.
 
         The given ``on_progress`` callback will be called as

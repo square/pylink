@@ -2440,12 +2440,17 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(0, self.jlink.flash([0], 0))
         self.jlink.halt.assert_called_once()
 
+        # Without power by default
+        self.jlink.power_on = mock.Mock()
+        self.assertEqual(0, self.jlink.flash([0], 0))
+        self.jlink.power_on.assert_not_called()
+
         # With power
         self.jlink.power_on = mock.Mock()
         self.assertEqual(0, self.jlink.flash([0], 0, power_on=True))
         self.jlink.power_on.assert_called_once()
 
-        # Without power
+        # Without power, explicit
         self.jlink.power_on = mock.Mock()
         self.assertEqual(0, self.jlink.flash([0], 0, power_on=False))
         self.jlink.power_on.assert_not_called()
