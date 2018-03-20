@@ -289,8 +289,8 @@ class TestLibrary(unittest.TestCase):
         mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         mock_open.assert_called_with(self.lib_path, 'rb')
         mock_cdll.LoadLibrary.assert_called_once()
-        mock_windll.LoadLibrary.assert_called_once()       
-            
+        mock_windll.LoadLibrary.assert_called_once()
+
     @mock.patch('sys.platform', new='darwin')
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
