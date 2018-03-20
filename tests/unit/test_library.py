@@ -19,6 +19,8 @@ import mock
 
 import unittest
 
+import platform
+
 
 class TestLibrary(unittest.TestCase):
     """Unit test for the ``library`` submodule."""
@@ -579,7 +581,10 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        if platform.architecture()[0] == '64bit':
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
+        else:
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_windll.LoadLibrary.call_count)
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
@@ -622,8 +627,11 @@ class TestLibrary(unittest.TestCase):
 
         lib = library.Library()
         lib.unload = mock.Mock()
-
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        
+        if platform.architecture()[0] == '64bit':
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
+        else:
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_windll.LoadLibrary.call_count)
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
@@ -667,7 +675,10 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        if platform.architecture()[0] == '64bit':
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
+        else:
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_windll.LoadLibrary.call_count)
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
@@ -712,7 +723,10 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        if platform.architecture()[0] == '64bit':
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
+        else:
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(0, mock_windll.LoadLibrary.call_count)
         self.assertEqual(0, mock_cdll.LoadLibrary.call_count)
@@ -749,7 +763,10 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        if platform.architecture()[0] == '64bit':
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
+        else:
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_load_library.call_count)
 
