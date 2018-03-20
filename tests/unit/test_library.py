@@ -627,7 +627,7 @@ class TestLibrary(unittest.TestCase):
 
         lib = library.Library()
         lib.unload = mock.Mock()
-        
+
         if platform.architecture()[0] == '64bit':
             mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
         else:

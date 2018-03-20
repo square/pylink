@@ -89,9 +89,9 @@ class Library(object):
     WINDOWS_64_JLINK_SDK_NAME = 'JLink_x64'
 
     @classmethod
-    def get_appropriate_windows_library_name(cls):
-        """Returns the appropriate JLink library name on Windows depending on
-        32bit or 64bit Python variant.
+    def get_appropriate_windows_sdk_name(cls):
+        """Returns the appropriate JLink SDK library name on Windows depending
+        on 32bit or 64bit Python variant.
 
         SEGGER delivers two variants of their dynamic library on Windows:
           - ``JLinkARM.dll`` for 32-bit platform
@@ -105,8 +105,8 @@ class Library(object):
 
         """
         dll_mapping = {
-            "32bit": Library.WINDOWS_32_JLINK_SDK_NAME + '.dll',
-            "64bit": Library.WINDOWS_64_JLINK_SDK_NAME + '.dll'
+            "32bit": Library.WINDOWS_32_JLINK_SDK_NAME,
+            "64bit": Library.WINDOWS_64_JLINK_SDK_NAME
         }
         return dll_mapping[platform.architecture()[0]]
 
@@ -125,7 +125,7 @@ class Library(object):
           The paths to the J-Link library files in the order that they are
           found.
         """
-        dll = cls.get_appropriate_windows_library_name()
+        dll = cls.get_appropriate_windows_sdk_name() + '.dll'
         root = 'C:\\'
         for d in os.listdir(root):
             dir_path = os.path.join(root, d)
@@ -253,7 +253,7 @@ class Library(object):
         self._temp = None
 
         if self._windows or self._cygwin:
-            self._sdk = self.get_appropriate_windows_library_name()
+            self._sdk = self.get_appropriate_windows_sdk_name()
         else:
             self._sdk = self.JLINK_SDK_NAME
 
