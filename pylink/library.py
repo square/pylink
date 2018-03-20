@@ -104,7 +104,7 @@ class Library(object):
           The name of the library depending on the platform this module is run on.
 
         """
-        if sys.max_size == (2**63 - 1):
+        if sys.maxsize == (2**63 - 1):
             return Library.WINDOWS_64_JLINK_SDK_NAME
         else:
             return Library.WINDOWS_32_JLINK_SDK_NAME
