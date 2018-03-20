@@ -19,8 +19,6 @@ import mock
 
 import unittest
 
-import platform
-
 
 class TestLibrary(unittest.TestCase):
     """Unit test for the ``library`` submodule."""

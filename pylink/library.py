@@ -19,7 +19,6 @@ import ctypes.util as ctypes_util
 import os
 import sys
 import tempfile
-import platform
 
 
 class Library(object):
