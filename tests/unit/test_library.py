@@ -246,7 +246,10 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        if platform.architecture()[0] = '64bit':
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
+        else:
+            mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         mock_open.assert_called_with(self.lib_path, 'rb')
         mock_cdll.LoadLibrary.assert_called_once()
         mock_windll.LoadLibrary.assert_called_once()

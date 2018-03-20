@@ -21,6 +21,7 @@ import sys
 import tempfile
 import platform
 
+
 class Library(object):
     """Wrapper to provide easy access to loading the J-Link SDK DLL.
 
@@ -104,8 +105,8 @@ class Library(object):
 
         """
         dll_mapping = {
-            "32bit" : Library.WINDOWS_32_JLINK_SDK_NAME + '.dll',
-            "64bit" : Library.WINDOWS_64_JLINK_SDK_NAME + '.dll'
+            "32bit": Library.WINDOWS_32_JLINK_SDK_NAME + '.dll',
+            "64bit": Library.WINDOWS_64_JLINK_SDK_NAME + '.dll'
         }
         return dll_mapping[platform.architecture()[0]]
 
@@ -124,7 +125,7 @@ class Library(object):
           The paths to the J-Link library files in the order that they are
           found.
         """
-        dll = self.get_appropriate_windows_library_name()
+        dll = cls.get_appropriate_windows_library_name()
         root = 'C:\\'
         for d in os.listdir(root):
             dir_path = os.path.join(root, d)
