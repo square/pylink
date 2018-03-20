@@ -19,7 +19,7 @@ import ctypes.util as ctypes_util
 import os
 import sys
 import tempfile
-
+import platform
 
 class Library(object):
     """Wrapper to provide easy access to loading the J-Link SDK DLL.
@@ -84,7 +84,30 @@ class Library(object):
 
     JLINK_SDK_NAME = 'libjlinkarm'
 
-    WINDOWS_JLINK_SDK_NAME = 'JLinkARM'
+    WINDOWS_32_JLINK_SDK_NAME = 'JLinkARM'
+    WINDOWS_64_JLINK_SDK_NAME = 'JLink_x64'
+
+    @classmethod
+    def get_appropriate_windows_library_name(cls):
+        """Returns the appropriate JLink library name on Windows depending on
+        32bit or 64bit Python variant.
+
+        SEGGER delivers two variants of their dynamic library on Windows:
+          - ``JLinkARM.dll`` for 32-bit platform
+          - ``JLink_x64.dll`` for 64-bit plaform
+
+        Args:
+          cls (Library): the ``Library`` class
+
+        Returns:
+          The name of the library depending on the platform this module is run on.
+
+        """
+        dll_mapping = {
+            "32bit" : Library.WINDOWS_32_JLINK_SDK_NAME + '.dll',
+            "64bit" : Library.WINDOWS_64_JLINK_SDK_NAME + '.dll'
+        }
+        return dll_mapping[platform.architecture()[0]]
 
     @classmethod
     def find_library_windows(cls):
@@ -101,7 +124,7 @@ class Library(object):
           The paths to the J-Link library files in the order that they are
           found.
         """
-        dll = Library.WINDOWS_JLINK_SDK_NAME + '.dll'
+        dll = self.get_appropriate_windows_library_name()
         root = 'C:\\'
         for d in os.listdir(root):
             dir_path = os.path.join(root, d)
@@ -229,7 +252,7 @@ class Library(object):
         self._temp = None
 
         if self._windows or self._cygwin:
-            self._sdk = self.WINDOWS_JLINK_SDK_NAME
+            self._sdk = self.get_appropriate_windows_library_name()
         else:
             self._sdk = self.JLINK_SDK_NAME
 
