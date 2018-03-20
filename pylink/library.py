@@ -95,7 +95,7 @@ class Library(object):
 
         SEGGER delivers two variants of their dynamic library on Windows:
           - ``JLinkARM.dll`` for 32-bit platform
-          - ``JLink_x64.dll`` for 64-bit plaform
+          - ``JLink_x64.dll`` for 64-bit platform
 
         Args:
           cls (Library): the ``Library`` class
@@ -104,11 +104,10 @@ class Library(object):
           The name of the library depending on the platform this module is run on.
 
         """
-        dll_mapping = {
-            "32bit": Library.WINDOWS_32_JLINK_SDK_NAME,
-            "64bit": Library.WINDOWS_64_JLINK_SDK_NAME
-        }
-        return dll_mapping[platform.architecture()[0]]
+        if sys.max_size == (2**63 - 1):
+            return Library.WINDOWS_64_JLINK_SDK_NAME
+        else:
+            return Library.WINDOWS_32_JLINK_SDK_NAME
 
     @classmethod
     def find_library_windows(cls):
