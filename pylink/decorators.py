@@ -17,7 +17,7 @@ from . import threads
 import functools
 
 
-def async(func):
+def async_decorator(func):
     """Asynchronous function decorator.  Interprets the function as being
     asynchronous, so returns a function that will handle calling the
     Function asynchronously.
