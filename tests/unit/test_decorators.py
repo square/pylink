@@ -58,7 +58,7 @@ class TestDecorators(unittest.TestCase):
         Returns:
           `None`
         """
-        @decorators.async
+        @decorators.async_decorator
         def foo():
             return 4
 
@@ -74,7 +74,7 @@ class TestDecorators(unittest.TestCase):
         Returns:
           `None`
         """
-        @decorators.async
+        @decorators.async_decorator
         def foo():
             return 4
 
@@ -90,7 +90,7 @@ class TestDecorators(unittest.TestCase):
         Returns:
           `None`
         """
-        @decorators.async
+        @decorators.async_decorator
         def foo():
             return 4
 
@@ -120,7 +120,7 @@ class TestDecorators(unittest.TestCase):
         Returns:
           `None`
         """
-        @decorators.async
+        @decorators.async_decorator
         def failure():
             raise Exception('I HAVE FAILED!')
 
