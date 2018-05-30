@@ -2103,7 +2103,7 @@ class JLink(object):
         return True
 
     @connection_required
-    @decorators.async
+    @decorators.async_decorator
     def halt(self):
         """Halts the CPU Core.
 

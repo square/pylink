@@ -247,7 +247,7 @@ def unlock_kinetis_jtag(jlink):
 UNLOCK_METHODS[enums.JLinkInterfaces.JTAG] = unlock_kinetis_jtag
 
 
-@decorators.async
+@decorators.async_decorator
 def unlock_kinetis(jlink):
     """Unlock for Freescale Kinetis K40 or K60 device.
 
