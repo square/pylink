@@ -545,6 +545,12 @@ class JLink(object):
 
         if ip_addr is not None:
             addr, port = ip_addr.split(':')
+            if addr == 'tunnel':
+                if serial_no is not None:
+                    addr += ':' + str(serial_no)
+                    serial_no = None
+                else:
+                    raise AttributeError('connection trough tunnel requires a valid serial number.')
             if serial_no is None:
                 result = self._dll.JLINKARM_SelectIP(addr.encode(), int(port))
                 if result == 1:
