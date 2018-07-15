@@ -544,13 +544,7 @@ class JLink(object):
         self.close()
 
         if ip_addr is not None:
-            addr, port = ip_addr.split(':')
-            if addr == 'tunnel':
-                if serial_no is not None:
-                    addr += ':' + str(serial_no)
-                    serial_no = None
-                else:
-                    raise AttributeError('connection trough tunnel requires a valid serial number.')
+            addr, port = ip_addr.rsplit(':', 1)
             if serial_no is None:
                 result = self._dll.JLINKARM_SelectIP(addr.encode(), int(port))
                 if result == 1:
@@ -595,6 +589,19 @@ class JLink(object):
             self._dll.JLINK_SetHookUnsecureDialog(func)
 
         return None
+
+    def open_tunnel(self, serial_no, port=19020):
+        """Connects to the J-Link emulator (over SEGGER tunnel).
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          serial_no (int): serial number of the J-Link
+          port (int): optional port number (default to 19020).
+
+        Returns:
+          ``None``
+        """
+        return self.open(ip_addr='tunnel:' + str(serial_no) + ':' + str(port))
 
     def close(self):
         """Closes the open J-Link.
