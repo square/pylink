@@ -626,7 +626,7 @@ class TestJLink(unittest.TestCase):
 
         self.jlink.open_tunnel(serial_no=123456789)
 
-        self.dll.JLINKARM_SelectIP.assert_called_once()
+        self.dll.JLINKARM_SelectIP.assert_called_once_with('tunnel:123456789'.encode(), 19020)
 
     def test_jlink_open_serial_number_failed(self):
         """Tests the J-Link ``open()`` method over USB by serial number, but
