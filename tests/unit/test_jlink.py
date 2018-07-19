@@ -610,6 +610,24 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(0, self.dll.JLINKARM_EMU_SelectIP.call_count)
         self.assertEqual(1, self.dll.JLINKARM_EMU_SelectIPBySN.call_count)
 
+    def test_jlink_open_tunnel(self):
+        """Tests the J-Link ``open_tunnel()`` method over tunnel succeeding
+        with default port value.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLNKARM_SelectIP.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        self.dll.JLINKARM_GetSN.return_value = 123456789
+
+        self.jlink.open_tunnel(serial_no=123456789)
+
+        self.dll.JLINKARM_SelectIP.assert_called_once_with('tunnel:123456789'.encode(), 19020)
+
     def test_jlink_open_serial_number_failed(self):
         """Tests the J-Link ``open()`` method over USB by serial number, but
         failing.
