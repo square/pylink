@@ -19,6 +19,7 @@ script:
   - python setup.py bdist_wheel
 
 deploy:
+  skip_cleanup: true
   provider: pypi
   user: pylinksquare
   password:
