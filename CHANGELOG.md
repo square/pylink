@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.1]
+
+### Changed
+- @ford: `async` decorator renamed to `async_decorator` to support
+  new linting rules in Python3.
+
+### Added
+
+- @ford: Added missing `six` requirement to `setup.py` and
+  `requirements.txt`.
+- @Sauci: Added `open_tunnel()` method to connect to a J-Link over the
+  remote server.
 
 ## [0.1.0]
 
