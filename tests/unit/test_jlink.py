@@ -1172,29 +1172,6 @@ class TestJLink(unittest.TestCase):
 
         with self.assertRaisesRegexp(JLinkException, 'Unsupported device'):
             self.jlink.connect('device')
-    
-    @mock.patch('time.sleep')
-    def test_jlink_connect_with_wait(self, mock_sleep):
-        """Tests J-Link ``connect()`` with ``wait_after_connect_sec`` argument.
-
-        Args:
-          self (TestJLink): the ``TestJLink`` instance
-          mock_sleep (Mock): mocked sleep function
-
-        Returns:
-          ``None``
-        """
-        self.dll.JLINKARM_ExecCommand.return_value = 0
-        self.dll.JLINKARM_Connect.return_value = 0
-
-        self.jlink.num_supported_devices = mock.Mock()
-        self.jlink.num_supported_devices.return_value = 1
-        self.jlink.supported_device = mock.Mock()
-        self.jlink.supported_device.return_value = mock.Mock()
-        self.jlink.supported_device.return_value.name = 'device'
-
-        self.jlink.connect('device', wait_after_connect_sec=5.0)
-        self.assertTrue(mock_sleep.called_once_with(5.0))
 
     def test_jlink_error(self):
         """Tests the J-Link ``error`` property.

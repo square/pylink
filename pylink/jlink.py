@@ -887,7 +887,7 @@ class JLink(object):
         return None
 
     @open_required
-    def connect(self, chip_name, speed='auto', verbose=False, wait_after_connect_sec=2):
+    def connect(self, chip_name, speed='auto', verbose=False):
         """Connects the J-Link to its target.
 
         Args:
@@ -895,7 +895,6 @@ class JLink(object):
           chip_name (str): target chip name
           speed (int): connection speed, one of ``{5-12000, 'auto', 'adaptive'}``
           verbose (bool): boolean indicating if connection should be verbose in logging
-          wait_after_connect_sec (float): time in seconds to wait after connect
 
         Returns:
           ``None``
@@ -924,11 +923,6 @@ class JLink(object):
         result = self._dll.JLINKARM_Connect()
         if result < 0:
             raise errors.JLinkException(result)
-
-        # Required in the event that the device is unsecured, as it will be
-        # mass erased here if the system is a Windows system and the user has
-        # opted to erase the device.
-        time.sleep(wait_after_connect_sec)
 
         # Determine which device we are.  This is essential for using methods
         # like 'unlock' or 'lock'.
