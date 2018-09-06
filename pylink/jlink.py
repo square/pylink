@@ -924,6 +924,12 @@ class JLink(object):
         if result < 0:
             raise errors.JLinkException(result)
 
+        try:
+            # Issue a no-op command after connect. This has to be in a try-catch.
+            self.halted()
+        except errors.JLinkException:
+            pass
+
         # Determine which device we are.  This is essential for using methods
         # like 'unlock' or 'lock'.
         for index in range(self.num_supported_devices()):
