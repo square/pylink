@@ -924,10 +924,11 @@ class JLink(object):
         if result < 0:
             raise errors.JLinkException(result)
 
-        # Required in the event that the device is unsecured, as it will be
-        # mass erased here if the system is a Windows system and the user has
-        # opted to erase the device.
-        time.sleep(2)
+        try:
+            # Issue a no-op command after connect. This has to be in a try-catch.
+            self.halted()
+        except errors.JLinkException:
+            pass
 
         # Determine which device we are.  This is essential for using methods
         # like 'unlock' or 'lock'.
