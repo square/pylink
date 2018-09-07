@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.2]
+
+### Changed
+- @wallacbe: Removed `sleep` after `connect`; no-op issued to make sure the
+  target is ready for debugging.
+
 ## [0.1.1]
 
 ### Changed
