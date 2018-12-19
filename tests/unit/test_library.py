@@ -246,7 +246,45 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.WINDOWS_64_JLINK_SDK_NAME)
+        mock_open.assert_called_with(self.lib_path, 'rb')
+        mock_cdll.LoadLibrary.assert_called_once()
+        mock_windll.LoadLibrary.assert_called_once()
+
+    @mock.patch('sys.platform', new='windows')
+    @mock.patch('sys.maxsize', new=(2**31-1))
+    @mock.patch('pylink.library.open')
+    @mock.patch('os.remove', new=mock.Mock())
+    @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
+    @mock.patch('ctypes.util.find_library')
+    @mock.patch('pylink.library.ctypes')
+    def test_initialize_windows_32bit(self, mock_ctypes, mock_find_library, mock_open):
+        """Tests creating a library on a Windows machine with 32bit Python.
+
+        Args:
+          self (TestLibrary): the ``TestLibrary`` instance
+          mock_ctypes (Mock): a mocked version of the ctypes library
+          mock_find_library (Mock): mock for mocking the
+            ``ctypes.util.find_library()`` call
+          mock_open (Mock): mock for mocking the call to ``open()``
+
+        Returns:
+          ``None``
+        """
+        mock_windll = mock.Mock()
+        mock_windll.__getitem__ = mock.Mock()
+
+        mock_cdll = mock.Mock()
+        mock_cdll.__getitem__ = mock.Mock()
+
+        mock_ctypes.windll = mock_windll
+        mock_ctypes.cdll = mock_cdll
+        mock_find_library.return_value = self.lib_path
+
+        lib = library.Library()
+        lib.unload = mock.Mock()
+
+        mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         mock_open.assert_called_with(self.lib_path, 'rb')
         mock_cdll.LoadLibrary.assert_called_once()
         mock_windll.LoadLibrary.assert_called_once()
@@ -538,6 +576,7 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(0, mock_load_library.call_count)
 
     @mock.patch('sys.platform', new='windows')
+    @mock.patch('sys.maxsize', new=(2**31 - 1))
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
@@ -576,12 +615,13 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_windll.LoadLibrary.call_count)
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='windows')
+    @mock.patch('sys.maxsize', new=(2**31-1))
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
@@ -620,12 +660,13 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_windll.LoadLibrary.call_count)
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='windows')
+    @mock.patch('sys.maxsize', new=(2**31-1))
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
@@ -664,12 +705,13 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_windll.LoadLibrary.call_count)
         self.assertEqual(1, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='windows')
+    @mock.patch('sys.maxsize', new=(2**31 - 1))
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
@@ -709,12 +751,13 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(0, mock_windll.LoadLibrary.call_count)
         self.assertEqual(0, mock_cdll.LoadLibrary.call_count)
 
     @mock.patch('sys.platform', new='cygwin')
+    @mock.patch('sys.maxsize', new=(2**31-1))
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
@@ -746,7 +789,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.WINDOWS_JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.WINDOWS_32_JLINK_SDK_NAME)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_load_library.call_count)
 
