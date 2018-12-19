@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.3]
+
+### Changed
+- @michalfita: Fixed handling for DLL in 64-bit Python instances: on 64-bit
+  Windows platforms running 64-bit Python, the 32-bit DLL was always being
+  loaded; now the 64-bit DLL will be loaded instead.
+
 ## [0.1.2]
 
 ### Changed
