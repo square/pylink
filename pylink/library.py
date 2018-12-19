@@ -195,7 +195,7 @@ class Library(object):
         ======== ============================================================
         Versions Directory
         ======== ============================================================
-        < 5.0.0  ``/Applications/SEGGER/JLink\ NUMBER``
+        < 5.0.0  ``/Applications/SEGGER/JLink\\ NUMBER``
         < 6.0.0  ``/Applications/SEGGER/JLink/libjlinkarm.major.minor.dylib``
         >= 6.0.0 ``/Applications/SEGGER/JLink/libjlinkarm``
         ======== ============================================================

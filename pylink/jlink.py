@@ -544,7 +544,7 @@ class JLink(object):
         self.close()
 
         if ip_addr is not None:
-            addr, port = ip_addr.split(':')
+            addr, port = ip_addr.rsplit(':', 1)
             if serial_no is None:
                 result = self._dll.JLINKARM_SelectIP(addr.encode(), int(port))
                 if result == 1:
@@ -589,6 +589,19 @@ class JLink(object):
             self._dll.JLINK_SetHookUnsecureDialog(func)
 
         return None
+
+    def open_tunnel(self, serial_no, port=19020):
+        """Connects to the J-Link emulator (over SEGGER tunnel).
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          serial_no (int): serial number of the J-Link
+          port (int): optional port number (default to 19020).
+
+        Returns:
+          ``None``
+        """
+        return self.open(ip_addr='tunnel:' + str(serial_no) + ':' + str(port))
 
     def close(self):
         """Closes the open J-Link.
@@ -911,10 +924,11 @@ class JLink(object):
         if result < 0:
             raise errors.JLinkException(result)
 
-        # Required in the event that the device is unsecured, as it will be
-        # mass erased here if the system is a Windows system and the user has
-        # opted to erase the device.
-        time.sleep(2)
+        try:
+            # Issue a no-op command after connect. This has to be in a try-catch.
+            self.halted()
+        except errors.JLinkException:
+            pass
 
         # Determine which device we are.  This is essential for using methods
         # like 'unlock' or 'lock'.
@@ -2103,7 +2117,7 @@ class JLink(object):
         return True
 
     @connection_required
-    @decorators.async
+    @decorators.async_decorator
     def halt(self):
         """Halts the CPU Core.
 

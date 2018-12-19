@@ -19,6 +19,7 @@ script:
   - python setup.py bdist_wheel
 
 deploy:
+  skip_cleanup: true
   provider: pypi
   user: pylinksquare
   password:
@@ -26,7 +27,8 @@ deploy:
   on:
     branch: master
     tags: true
-  distributions: "sdist bdist_wheel"
+    python: 2.7
+  distributions: sdist bdist_wheel
 
 addons:
   apt:
