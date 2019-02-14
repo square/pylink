@@ -2956,6 +2956,26 @@ class JLink(object):
         return self.memory_write32(addr, words, zone=zone)
 
     @connection_required
+    def peripheral_write32(self, addr, value):
+        """Writes data to peripheral register of target system.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          addr (int): start address to write to
+          value (int): the value to write to the register
+
+        Returns:
+          The value written to the register.
+
+        Raises:
+          JLinkException: on write error.
+        """
+        res = self._dll.JLINKARM_WriteU32(addr, value)
+        if res != 0:
+            raise errors.JLinkWriteException('Error writing to %d' % addr)
+        return value
+
+    @connection_required
     def register_read(self, register_index):
         """Reads the value from the given register.
 
