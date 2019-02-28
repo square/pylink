@@ -3030,6 +3030,7 @@ class JLink(object):
         Raises:
           JLinkException: on write error.
         """
+        # Default type is uint32_t，so specify the parameter type of the C function, otherwise get "ArgumentError"
         self._dll.JLINKARM_WriteU64.argtypes = [ctypes.c_uint32, ctypes.c_uint64]
         res = self._dll.JLINKARM_WriteU64(addr, value)
         if res != 0:
