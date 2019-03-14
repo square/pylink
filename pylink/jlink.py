@@ -4748,30 +4748,65 @@ class JLink(object):
 ###############################################################################
 
     @open_required
-    def rtt_start(self):
+    def rtt_start(self, block_address=None):
         """Starts RTT processing, including background read of target data.
+
         Args:
           self (JLink): the ``JLink`` instance
+          block_address (int): optional configuration address for the RTT block
+
+        Returns:
+          ``None``
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
-        self.rtt_control(enums.JLinkRTTCommand.START, None)
+        config = None
+        if block_address is not None:
+            config = structs.JLinkRTTerminalStart()
+            config.ConfigBlockAddress = block_address
+        self.rtt_control(enums.JLinkRTTCommand.START, config)
 
     @open_required
     def rtt_stop(self):
         """Stops RTT on the J-Link and host side.
+
         Args:
           self (JLink): the ``JLink`` instance
 
+        Returns:
+          ``None``
+
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
         self.rtt_control(enums.JLinkRTTCommand.STOP, None)
 
     @open_required
+    def rtt_get_buf_descriptor(self, buffer_index, up):
+        """After starting RTT, get the descriptor for an RTT control block.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): the index of the buffer to get.
+          up (bool): ``True`` if buffer is an UP buffer, otherwise ``False``.
+
+        Returns:
+          ``JLinkRTTerminalBufDesc`` describing the buffer.
+
+        Raises:
+          JLinkRTTException: if the RTT control block has not yet been found.
+        """
+        desc = structs.JLinkRTTerminalBufDesc()
+        desc.BufferIndex = buffer_index
+        desc.Direction = 0 if up else 1
+        self.rtt_control(enums.JLinkRTTCommand.GETDESC, desc)
+        return desc
+
+    @open_required
     def rtt_get_num_up_buffers(self):
         """After starting RTT, get the current number of up buffers.
+
         Args:
           self (JLink): the ``JLink`` instance
 
@@ -4779,7 +4814,7 @@ class JLink(object):
           The number of configured up buffers on the target.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
         cmd = enums.JLinkRTTCommand.GETNUMBUF
         dir = ctypes.c_int(enums.JLinkRTTDirection.UP)
@@ -4788,6 +4823,7 @@ class JLink(object):
     @open_required
     def rtt_get_num_down_buffers(self):
         """After starting RTT, get the current number of down buffers.
+
         Args:
           self (JLink): the ``JLink`` instance
 
@@ -4795,11 +4831,28 @@ class JLink(object):
           The number of configured down buffers on the target.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
         cmd = enums.JLinkRTTCommand.GETNUMBUF
         dir = ctypes.c_int(enums.JLinkRTTDirection.DOWN)
         return self.rtt_control(cmd, dir)
+
+    @open_required
+    def rtt_get_status(self):
+        """After starting RTT, get the status.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          The status of RTT.
+
+        Raises:
+          JLinkRTTException: on error.
+        """
+        status = structs.JLinkRTTerminalStatus()
+        res = self.rtt_control(enums.JLinkRTTCommand.GETSTAT, status)
+        return status
 
     @open_required
     def rtt_read(self, buffer_index, num_bytes):
@@ -4819,7 +4872,7 @@ class JLink(object):
           A list of bytes read from RTT.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Read call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Read call fails.
         """
         buf = (ctypes.c_ubyte * num_bytes)()
         bytes_read = self._dll.JLINK_RTTERMINAL_Read(buffer_index, buf, num_bytes)
@@ -4845,7 +4898,7 @@ class JLink(object):
           The number of bytes successfully written to the RTT buffer.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Write call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Write call fails.
         """
         buf_size = len(data)
         buf = (ctypes.c_ubyte * buf_size)(*bytearray(data))
@@ -4870,6 +4923,9 @@ class JLink(object):
 
         Returns:
           An integer containing the result of the command.
+
+        Raises:
+          JLinkRTTException: on error.
         """
         config_byref = ctypes.byref(config) if config is not None else None
         res = self._dll.JLINK_RTTERMINAL_Control(command, config_byref)

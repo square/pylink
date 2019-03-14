@@ -90,7 +90,7 @@ def write_rtt(jlink):
         raise
 
 
-def main(target_device):
+def main(target_device, block_address=None):
     """Creates an interactive terminal to the target via RTT.
 
     The main loop opens a connection to the JLink, and then connects
@@ -102,6 +102,7 @@ def main(target_device):
 
     Args:
       target_device (string): The target CPU to connect to.
+      block_address (int): optional address pointing to start of RTT block.
 
     Returns:
       Always returns ``0`` or a JLinkException.
@@ -116,7 +117,7 @@ def main(target_device):
     jlink.set_tif(pylink.enums.JLinkInterfaces.SWD)
     jlink.connect(target_device)
     print("connected, starting RTT...")
-    jlink.rtt_start()
+    jlink.rtt_start(block_address)
 
     while True:
         try:
@@ -126,6 +127,18 @@ def main(target_device):
             break
         except pylink.errors.JLinkRTTException:
             time.sleep(0.1)
+
+    print("up channels:")
+    for buf_index in range(jlink.rtt_get_num_up_buffers()):
+        buf = jlink.rtt_get_buf_descriptor(buf_index, True)
+        print("    %d: name = %r, size = %d bytes, flags = %d" % (buf.BufferIndex, buf.name,
+                                                                  buf.SizeOfBuffer, buf.Flags))
+
+    print("down channels:")
+    for buf_index in range(jlink.rtt_get_num_down_buffers()):
+        buf = jlink.rtt_get_buf_descriptor(buf_index, False)
+        print("    %d: name = %r, size = %d bytes, flags = %d" % (buf.BufferIndex, buf.name,
+                                                                  buf.SizeOfBuffer, buf.Flags))
 
     try:
         thread.start_new_thread(read_rtt, (jlink,))
@@ -139,4 +152,4 @@ def main(target_device):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    sys.exit(main(sys.argv[1], None if len(sys.argv) < 2 else int(sys.argv[2], 16)))

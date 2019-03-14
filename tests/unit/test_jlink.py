@@ -5430,6 +5430,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_start_calls_rtt_control_with_START_command(self):
         """Tests that rtt_start calls RTTERMINAL_Control with start command.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5437,13 +5438,25 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINK_RTTERMINAL_Control.return_value = 0
+
         self.jlink.rtt_start()
-        actual = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
-        self.assertEqual(enums.JLinkRTTCommand.START, actual[0])
-        self.assertIsNone(actual[1])
+
+        actual_cmd, config_ptr = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
+        self.assertEqual(enums.JLinkRTTCommand.START, actual_cmd)
+        self.assertIsNone(config_ptr)
+
+        self.jlink.rtt_start(0xDEADBEEF)
+
+        actual_cmd, config_ptr = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
+        self.assertEqual(enums.JLinkRTTCommand.START, actual_cmd)
+        self.assertTrue(config_ptr)
+
+        config = ctypes.cast(config_ptr, ctypes.POINTER(structs.JLinkRTTerminalStart)).contents
+        self.assertEqual(0xDEADBEEF, config.ConfigBlockAddress)
 
     def test_rtt_stop_calls_rtt_control_with_STOP_command(self):
         """Tests that rtt_stop calls RTTERMINAL_Control with stop command.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5456,8 +5469,38 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(enums.JLinkRTTCommand.STOP, actual[0])
         self.assertIsNone(actual[1])
 
+    def test_rtt_get_buf_descriptor_calls_control_with_struct(self):
+        """Tests that the ``rtt_get_buf_descriptor`` populates struct.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def _rtt_control(command, buf_ptr):
+            buf = ctypes.cast(buf_ptr, ctypes.POINTER(structs.JLinkRTTerminalBufDesc)).contents
+            buf.acName = str.encode('Terminal 0')
+            buf.SizeOfBuffer = 0x1337
+            buf.Flags = 0x3
+            return 0
+
+        self.dll.JLINK_RTTERMINAL_Control.side_effect = _rtt_control
+
+        buffer_index = 0x7
+        up = True
+        desc = self.jlink.rtt_get_buf_descriptor(buffer_index, up)
+
+        self.dll.JLINK_RTTERMINAL_Control.assert_called_with(enums.JLinkRTTCommand.GETDESC, mock.ANY)
+        self.assertEqual(buffer_index, desc.BufferIndex)
+        self.assertTrue(desc.up)
+        self.assertEqual('Terminal 0', desc.name)
+        self.assertEqual(0x1337, desc.SizeOfBuffer)
+        self.assertEqual(0x3, desc.Flags)
+
     def test_rtt_get_num_up_buffers_calls_control_with_cmd_and_dir(self):
         """Tests that rtt_get_num_up_buffers calls RTTERMINAL_Control.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5472,6 +5515,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_get_num_up_buffers_returns_result_from_control(self):
         """Tests that rtt_get_num_up_buffers returns RTTERMINAL_Control.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5485,6 +5529,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_get_num_down_buffers_calls_control_with_cmd_and_dir(self):
         """Tests that rtt_get_num_down_buffers calls RTTERMINAL_Control.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5499,6 +5544,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_get_num_down_buffers_returns_result_from_control(self):
         """Tests that rtt_get_num_down_buffers returns RTTERMINAL_Control.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5510,8 +5556,38 @@ class TestJLink(unittest.TestCase):
         actual = self.jlink.rtt_get_num_down_buffers()
         self.assertEqual(actual, expected)
 
+    def test_rtt_get_status_returns_result_from_control(self):
+        """Tests that ``rtt_get_status`` returns a valid RTT terminal status.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def _rtt_control(command, stat_ptr):
+            stat = ctypes.cast(stat_ptr, ctypes.POINTER(structs.JLinkRTTerminalStatus)).contents
+            stat.NumBytesTransferred = 0x1234
+            stat.NumBytesRead = 0x4321
+            stat.IsRunning = 1
+            stat.NumUpBuffers = 3
+            stat.NumDownBuffers = 3
+            return 0
+
+        self.dll.JLINK_RTTERMINAL_Control.side_effect = _rtt_control
+
+        stat = self.jlink.rtt_get_status()
+
+        self.dll.JLINK_RTTERMINAL_Control.assert_called_with(enums.JLinkRTTCommand.GETSTAT, mock.ANY)
+        self.assertEqual(0x1234, stat.NumBytesTransferred)
+        self.assertEqual(0x4321, stat.NumBytesRead)
+        self.assertTrue(stat.IsRunning)
+        self.assertEqual(3, stat.NumUpBuffers)
+        self.assertEqual(3, stat.NumDownBuffers)
+
     def test_rtt_control_forwards_command_to_RTTERMINAL_Control(self):
         """Tests that rtt_control forwards the command to RTT.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5526,6 +5602,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_control_forwards_none_config_to_RTTERMINAL_Control(self):
         """Tests that a None config value is forwarded to RTTERMINAL_Control.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5538,6 +5615,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_control_wraps_config_in_byref_before_calling_Control(self):
         """Tests that non-None configs get wrapped in ctypes.byref.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5554,6 +5632,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_control_raises_error_if_RTTERMINAL_Control_fails(self):
         """Tests that a JLinkException is raised if RTTERMINAL_Control fails.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5566,6 +5645,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_read_forwards_buffer_index_to_RTTERMINAL_Read(self):
         """Tests that rtt_read calls RTTERMINAL_Read with the supplied index.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5579,6 +5659,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_read_returns_partial_payload_when_underfilled(self):
         """Tests that rtt_read returns fewer bytes than requested when not full.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5607,6 +5688,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_read_raises_exception_if_RTTERMINAL_Read_fails(self):
         """Tests that rtt_read raises a JLinkException on failure.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5619,6 +5701,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_write_forwards_buffer_index_to_RTTERMINAL_Write(self):
         """Tests that rtt_write calls RTTERMINAL_Write with the supplied index.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5632,6 +5715,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_write_converts_byte_list_to_ctype_array(self):
         """Tests that rtt_write converts the provided byte list to ctype.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5646,6 +5730,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_write_returns_result_from_RTTERMINAL_Write(self):
         """Tests that rtt_write returns whatever value RTTERMINAL_Write returns.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -5659,6 +5744,7 @@ class TestJLink(unittest.TestCase):
 
     def test_rtt_write_raises_exception_if_RTTERMINAL_Write_fails(self):
         """Tests that rtt_write raises a JLinkException on failure.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
