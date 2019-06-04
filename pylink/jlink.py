@@ -214,7 +214,8 @@ class JLink(object):
             return wrapper
         return _interface_required
 
-    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None):
+    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None,
+                 serial_no=None, ip_addr=None, open_tunnel=False):
         """Initializes the J-Link interface object.
 
         Note:
@@ -236,6 +237,16 @@ class JLink(object):
             default this his writes to standard error
           unsecure_hook (function): function to be called for the unsecure
             dialog
+          serial_no (int): serial number of the J-Link
+          ip_addr (str): IP address and port of the J-Link
+            (e.g. 192.168.1.1:80)
+          open_tunnel (bool, None): If ``False`` (default), the ``open``
+            method will be called when entering the context manager using
+            the ``serial_no`` and ``ip_addr`` provided here.
+            If ``True`` ``open_tunnel`` method will be called instead
+            of ``open`` method.
+            If ``None``, the driver will not be opened automatically
+            (however, it is still closed when exiting the context manager).
 
         Returns:
           ``None``
@@ -273,6 +284,11 @@ class JLink(object):
         self.log_handler = lambda s: (log or logger.info)(s.decode())
         self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode())
 
+        # Parameters used for open() in context manager
+        self._serial_no = serial_no
+        self._ip_addr = ip_addr
+        self._open_tunnel = open_tunnel
+
         self._initialized = True
 
     def __del__(self):
@@ -292,6 +308,29 @@ class JLink(object):
 
             if self.opened():
                 self.close()
+
+    def __enter__(self):
+        """Connects to the J-Link emulator (defaults to USB) using context manager.
+
+        Parameters passed to __init__ are used for open() function.
+
+        Returns:
+          the ``JLink`` instance
+
+        Raises:
+          JLinkException: if fails to open (i.e. if device is unplugged)
+          TypeError: if ``serial_no`` is present, but not ``int`` coercible.
+          AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
+        """
+        if self._open_tunnel is False:
+            self.open(serial_no=self._serial_no, ip_addr=self._ip_addr)
+        elif self._open_tunnel is True:
+            self.open_tunnel(serial_no=self._serial_no)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.__del__()
+        # Do not return anything to pass on all other exceptions.
 
     def opened(self):
         """Returns whether the DLL is open.
