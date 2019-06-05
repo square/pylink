@@ -285,9 +285,9 @@ class JLink(object):
         self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode())
 
         # Parameters used for open() in context manager
-        self._serial_no = serial_no
-        self._ip_addr = ip_addr
-        self._open_tunnel = open_tunnel
+        self.__serial_no = serial_no
+        self.__ip_addr = ip_addr
+        self.__open_tunnel = open_tunnel
 
         self._initialized = True
 
@@ -301,13 +301,17 @@ class JLink(object):
         Returns:
           ``None``
         """
-        if self._initialized:
-            if self.connected():
-                if self.swo_enabled():
-                    self.swo_stop()
-
-            if self.opened():
-                self.close()
+        # weakref callbacks are rather low level, and working out how to use
+        # them correctly requires a bit of head scratching.  One must find
+        # somewhere to store the weakref till after the referent is dead, and
+        # without accidentally keeping the referent alive.  Then one must
+        # ensure that the callback frees the weakref (without leaving any
+        # remnant ref-cycles).
+        #
+        # When it is an option, using a __del__ method is far less hassle.
+        #
+        # Source: https://bugs.python.org/issue15528
+        self._finalize()
 
     def __enter__(self):
         """Connects to the J-Link emulator (defaults to USB) using context manager.
@@ -322,15 +326,55 @@ class JLink(object):
           TypeError: if ``serial_no`` is present, but not ``int`` coercible.
           AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
         """
-        if self._open_tunnel is False:
-            self.open(serial_no=self._serial_no, ip_addr=self._ip_addr)
-        elif self._open_tunnel is True:
-            self.open_tunnel(serial_no=self._serial_no)
+        if self.__open_tunnel is False:
+            self.open(serial_no=self.__serial_no, ip_addr=self.__ip_addr)
+        elif self.__open_tunnel is True:
+            self.open_tunnel(serial_no=self.__serial_no)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.__del__()
+        """Closes the JLink connection on exit of the context manager.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          exc_type (BaseExceptionType, None): the exception class, if any
+            raised inside the context manager
+          exc_val (BaseException, None): the exception object, if any raised
+            inside the context manager
+          exc_tb (TracebackType, None): the exception traceback, if any
+            exception was raised inside the context manager.
+
+        Returns:
+          ``True`` if exception raised inside the context manager was handled
+            and shall be suppressed (not propagated), ``None`` otherwise.
+        """
+        self._finalize()
         # Do not return anything to pass on all other exceptions.
+
+    def _finalize(self):
+        """Finalizer ("destructor") for the ``JLink`` instance.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+        Called when exiting the context manager or when this object is
+        destructed (garbage collected).
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          ``None``
+        """
+        if self._initialized:
+            if self.connected():
+                if self.swo_enabled():
+                    self.swo_stop()
+
+            if self.opened():
+                self.close()
 
     def opened(self):
         """Returns whether the DLL is open.

@@ -934,11 +934,14 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        with self.assertRaises(AttributeError):
-            with jlink.JLink(self.lib):
-                pass
-        # 2 instead of 1 because jlink.close() is also called from jlink.open().
-        self.assertEqual(2, self.dll.JLINKARM_Close.call_count)
+        # Use open_tunnel=None to avoid implicitly opening the connection.
+        with jlink.JLink(self.lib, open_tunnel=None):
+            self.dll.JLINKARM_OpenEx.assert_not_called()
+            self.dll.JLINKARM_Close.assert_not_called()
+        # .close() is first called when exiting the context manager
+        # Depending on the system - GC operation, it can also already be
+        # called from __del__ when the object is garbage collected.
+        self.assertIn(self.dll.JLINKARM_Close.call_count, (1, 2))
 
     def test_jlink_test(self):
         """Tests the J-Link self test.
