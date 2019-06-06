@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.2.0]
+
+### Added
+
+- @bojanpotocnik: Implemented context manager to enable automatic debugger
+  connection opening when context is entered, and connection closed when
+  exited.
+
+### Changed
+
+- @bojanpotocnik: Implemented finalizer method '_finalize()' to tear down
+  connection on destructor.
+
 ## [0.1.3]
 
 ### Changed
