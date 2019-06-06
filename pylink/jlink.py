@@ -214,7 +214,8 @@ class JLink(object):
             return wrapper
         return _interface_required
 
-    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None):
+    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None,
+                 serial_no=None, ip_addr=None, open_tunnel=False):
         """Initializes the J-Link interface object.
 
         Note:
@@ -236,6 +237,16 @@ class JLink(object):
             default this his writes to standard error
           unsecure_hook (function): function to be called for the unsecure
             dialog
+          serial_no (int): serial number of the J-Link
+          ip_addr (str): IP address and port of the J-Link
+            (e.g. 192.168.1.1:80)
+          open_tunnel (bool, None): If ``False`` (default), the ``open``
+            method will be called when entering the context manager using
+            the ``serial_no`` and ``ip_addr`` provided here.
+            If ``True`` ``open_tunnel`` method will be called instead
+            of ``open`` method.
+            If ``None``, the driver will not be opened automatically
+            (however, it is still closed when exiting the context manager).
 
         Returns:
           ``None``
@@ -273,11 +284,83 @@ class JLink(object):
         self.log_handler = lambda s: (log or logger.info)(s.decode())
         self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode())
 
+        # Parameters used for open() in context manager
+        self.__serial_no = serial_no
+        self.__ip_addr = ip_addr
+        self.__open_tunnel = open_tunnel
+
         self._initialized = True
 
     def __del__(self):
         """Destructor for the ``JLink`` instance.  Closes the J-Link connection
         if one exists.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          ``None``
+        """
+        # weakref callbacks are rather low level, and working out how to use
+        # them correctly requires a bit of head scratching.  One must find
+        # somewhere to store the weakref till after the referent is dead, and
+        # without accidentally keeping the referent alive.  Then one must
+        # ensure that the callback frees the weakref (without leaving any
+        # remnant ref-cycles).
+        #
+        # When it is an option, using a __del__ method is far less hassle.
+        #
+        # Source: https://bugs.python.org/issue15528
+        self._finalize()
+
+    def __enter__(self):
+        """Connects to the J-Link emulator (defaults to USB) using context manager.
+
+        Parameters passed to __init__ are used for open() function.
+
+        Returns:
+          the ``JLink`` instance
+
+        Raises:
+          JLinkException: if fails to open (i.e. if device is unplugged)
+          TypeError: if ``serial_no`` is present, but not ``int`` coercible.
+          AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
+        """
+        if self.__open_tunnel is False:
+            self.open(serial_no=self.__serial_no, ip_addr=self.__ip_addr)
+        elif self.__open_tunnel is True:
+            self.open_tunnel(serial_no=self.__serial_no)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Closes the JLink connection on exit of the context manager.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          exc_type (BaseExceptionType, None): the exception class, if any
+            raised inside the context manager
+          exc_val (BaseException, None): the exception object, if any raised
+            inside the context manager
+          exc_tb (TracebackType, None): the exception traceback, if any
+            exception was raised inside the context manager.
+
+        Returns:
+          ``True`` if exception raised inside the context manager was handled
+            and shall be suppressed (not propagated), ``None`` otherwise.
+        """
+        self._finalize()
+        # Do not return anything to pass on all other exceptions.
+
+    def _finalize(self):
+        """Finalizer ("destructor") for the ``JLink`` instance.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+        Called when exiting the context manager or when this object is
+        destructed (garbage collected).
 
         Args:
           self (JLink): the ``JLink`` instance
