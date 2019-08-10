@@ -141,8 +141,8 @@ class TestStructs(unittest.TestCase):
         status = structs.JLinkHardwareStatus()
         status.VTarget = voltage
         self.assertEqual(voltage, status.voltage)
-        self.assertEqual('JLinkHardwareStatus(VTarget=100mA)', str(status))
-        self.assertEqual('JLinkHardwareStatus(VTarget=100mA)', repr(status))
+        self.assertEqual('JLinkHardwareStatus(VTarget=100mV)', str(status))
+        self.assertEqual('JLinkHardwareStatus(VTarget=100mV)', repr(status))
 
     def test_jlink_gpio_descriptor(self):
         """Tests the ``JLinkGPIODescriptor`` structure.
