@@ -3044,11 +3044,19 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          register_index (int): the register to read
+          register_index (int/str): the register to read
 
         Returns:
           The value stored in the given register.
         """
+        # TODO: rename 'register_index' to 'register'
+        if isinstance(register_index, str):
+            regs = list(self.register_name(idx) for idx in self.register_list())
+            try:
+                register_index = regs.index(register_index)
+            except ValueError:
+                raise errors.JLinkException(
+                    "Error reading register '{}'. Available registers are {}".format(register_index, ', '.join(regs)))
         return self._dll.JLINKARM_ReadReg(register_index)
 
     @connection_required
@@ -3067,7 +3075,16 @@ class JLink(object):
         Raises:
           JLinkException: if a given register is invalid or an error occurs.
         """
+        # TODO: rename 'register_indices' to 'registers'
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, str):
+                regs = list(self.register_name(idx) for idx in self.register_list())
+                try:
+                    register_indices[idx] = regs.index(indice)
+                except ValueError:
+                    raise errors.JLinkException(
+                        "Error reading register '{}'. Available registers are {}".format(indice, ', '.join(regs)))
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(0)
 
@@ -3091,7 +3108,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          reg_index (int): the ARM register to write to
+          reg_index (int/str): the ARM register to write to
           value (int): the value to write to the register
 
         Returns:
@@ -3100,6 +3117,14 @@ class JLink(object):
         Raises:
           JLinkException: on write error.
         """
+        # TODO: rename 'reg_index' to 'register'
+        if isinstance(reg_index, str):
+            regs = list(self.register_name(idx) for idx in self.register_list())
+            try:
+                reg_index = regs.index(reg_index)
+            except ValueError:
+                raise errors.JLinkException(
+                    "Error writing register '{}'. Available registers are {}".format(reg_index, ', '.join(regs)))
         res = self._dll.JLINKARM_WriteReg(reg_index, value)
         if res != 0:
             raise errors.JLinkException('Error writing to register %d' % reg_index)
@@ -3125,10 +3150,19 @@ class JLink(object):
           ValueError: if ``len(register_indices) != len(values)``
           JLinkException: if a register could not be written to or on error
         """
+        # TODO: rename 'register_indices' to 'registers'
         if len(register_indices) != len(values):
             raise ValueError('Must be an equal number of registers and values')
 
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, str):
+                regs = list(self.register_name(idx) for idx in self.register_list())
+                try:
+                    register_indices[idx] = regs.index(indice)
+                except ValueError:
+                    raise errors.JLinkException(
+                        "Error writing register '{}'. Available registers are {}".format(indice, ', '.join(regs)))
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(*values)
 
