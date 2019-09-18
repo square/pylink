@@ -31,6 +31,7 @@ import math
 import operator
 import sys
 import time
+import six
 
 
 logger = logging.getLogger(__name__)
@@ -375,6 +376,16 @@ class JLink(object):
 
             if self.opened():
                 self.close()
+
+    def _get_register_index_from_name(self, register):
+        regs = list(self.register_name(idx) for idx in self.register_list())
+        if isinstance(register, six.string_types):
+            try:
+                result = regs.index(register)
+            except ValueError:
+                error_message = "No register found matching name: {}. (available registers: {})"
+                raise errors.JLinkException(error_message.format(register, ', '.join(regs)))
+        return result
 
     def opened(self):
         """Returns whether the DLL is open.
@@ -3050,13 +3061,8 @@ class JLink(object):
           The value stored in the given register.
         """
         # TODO: rename 'register_index' to 'register'
-        if isinstance(register_index, str):
-            regs = list(self.register_name(idx) for idx in self.register_list())
-            try:
-                register_index = regs.index(register_index)
-            except ValueError:
-                raise errors.JLinkException(
-                    "Error reading register '{}'. Available registers are {}".format(register_index, ', '.join(regs)))
+        if isinstance(register_index, six.string_types):
+            register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
     @connection_required
@@ -3078,13 +3084,8 @@ class JLink(object):
         # TODO: rename 'register_indices' to 'registers'
         num_regs = len(register_indices)
         for idx, indice in enumerate(register_indices):
-            if isinstance(indice, str):
-                regs = list(self.register_name(idx) for idx in self.register_list())
-                try:
-                    register_indices[idx] = regs.index(indice)
-                except ValueError:
-                    raise errors.JLinkException(
-                        "Error reading register '{}'. Available registers are {}".format(indice, ', '.join(regs)))
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(0)
 
@@ -3118,13 +3119,8 @@ class JLink(object):
           JLinkException: on write error.
         """
         # TODO: rename 'reg_index' to 'register'
-        if isinstance(reg_index, str):
-            regs = list(self.register_name(idx) for idx in self.register_list())
-            try:
-                reg_index = regs.index(reg_index)
-            except ValueError:
-                raise errors.JLinkException(
-                    "Error writing register '{}'. Available registers are {}".format(reg_index, ', '.join(regs)))
+        if isinstance(reg_index, six.string_types):
+            reg_index = self._get_register_index_from_name(reg_index)
         res = self._dll.JLINKARM_WriteReg(reg_index, value)
         if res != 0:
             raise errors.JLinkException('Error writing to register %d' % reg_index)
@@ -3156,13 +3152,8 @@ class JLink(object):
 
         num_regs = len(register_indices)
         for idx, indice in enumerate(register_indices):
-            if isinstance(indice, str):
-                regs = list(self.register_name(idx) for idx in self.register_list())
-                try:
-                    register_indices[idx] = regs.index(indice)
-                except ValueError:
-                    raise errors.JLinkException(
-                        "Error writing register '{}'. Available registers are {}".format(indice, ', '.join(regs)))
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(*values)
 
