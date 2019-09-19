@@ -3871,6 +3871,21 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ReadReg.return_value = 0xFF
         self.assertEqual(0xFF, self.jlink.register_read(0))
 
+    def test_jlink_register_read_single_from_name(self):
+        """Tests reading a single register at a time.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_GetRegisterList.return_value = 1
+        self.dll.JLINKARM_GetRegisterName.return_value = 'R0'.encode()
+        self.dll.JLINKARM_ReadReg.return_value = 0xFF
+
+        self.assertEqual(0xFF, self.jlink.register_read('R0'))
+
     def test_jlink_register_read_multiple_failure(self):
         """Tests failing to read multiple registers at once.
 
@@ -3901,6 +3916,53 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(10, len(res))
         self.assertTrue(all(x == 0 for x in res))
 
+    def test_jlink_register_read_multiple_from_name_failure(self):
+        """Tests successfully reading multiple registers at once.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def register_list(buf, _):
+            num_items = 3
+            for i in range(num_items):
+                buf[i] = i
+            return num_items
+
+        self.dll.JLINKARM_ReadRegs.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.side_effect = register_list
+        self.dll.JLINKARM_GetRegisterName.side_effect = lambda idx: 'R{}'.format(idx + 10).encode()
+
+        with self.assertRaises(JLinkException) as exception:
+            self.jlink.register_read_multiple(['R{}'.format(idx) for idx in range(3)])
+        assert str(exception.exception) == 'No register found matching name: R0. (available registers: R10, R11, R12)'
+
+    def test_jlink_register_read_multiple_from_name_success(self):
+        """Tests successfully reading multiple registers at once.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def register_list(buf, num_items):
+            for i in range(num_items):
+                buf[i] = i
+            return num_items
+
+        self.dll.JLINKARM_ReadRegs.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.side_effect = register_list
+        self.dll.JLINKARM_GetRegisterName.side_effect = lambda idx: 'R{}'.format(idx).encode()
+
+        res = self.jlink.register_read_multiple(['R{}'.format(idx) for idx in range(10)])
+
+        self.assertTrue(isinstance(res, list))
+        self.assertEqual(10, len(res))
+        self.assertTrue(all(x == 0 for x in res))
+
     def test_jlink_register_write_single_failure(self):
         """Tests failing to write to a single register.
 
@@ -3926,6 +3988,20 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINKARM_WriteReg.return_value = 0
         self.assertEqual(0xFF, self.jlink.register_write(0, 0xFF))
+
+    def test_jlink_register_write_single_from_name_success(self):
+        """Tests successfully writing to a single register.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_WriteReg.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.return_value = 1
+        self.dll.JLINKARM_GetRegisterName.return_value = 'R0'.encode()
+        self.assertEqual(0xFF, self.jlink.register_write('R0', 0xFF))
 
     def test_jlink_register_write_multiple_failure(self):
         """Tests failing to write to multiple registers at once.
@@ -3963,6 +4039,32 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_WriteRegs.return_value = 0
 
         res = self.jlink.register_write_multiple([0, 1], [0xFF, 0xFF])
+        self.assertEqual(None, res)
+
+        indices, values, _, count = self.dll.JLINKARM_WriteRegs.call_args[0]
+        self.assertEqual(2, count)
+        self.assertEqual(list(indices), [0, 1])
+        self.assertEqual(list(values), [0xFF] * count)
+
+    def test_jlink_register_write_multiple_from_name_success(self):
+        """Tests succussfully writing to multiple registers at once.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def register_list(buf, num_items):
+            for i in range(num_items):
+                buf[i] = i
+            return num_items
+
+        self.dll.JLINKARM_WriteRegs.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.side_effect = register_list
+        self.dll.JLINKARM_GetRegisterName.side_effect = lambda idx: 'R{}'.format(idx).encode()
+
+        res = self.jlink.register_write_multiple(['R0', 'R1'], [0xFF, 0xFF])
         self.assertEqual(None, res)
 
         indices, values, _, count = self.dll.JLINKARM_WriteRegs.call_args[0]
