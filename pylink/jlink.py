@@ -3092,6 +3092,7 @@ class JLink(object):
           JLinkException: if a given register is invalid or an error occurs.
         """
         # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         num_regs = len(register_indices)
         for idx, indice in enumerate(register_indices):
             if isinstance(indice, six.string_types):
@@ -3157,6 +3158,7 @@ class JLink(object):
           JLinkException: if a register could not be written to or on error
         """
         # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         if len(register_indices) != len(values):
             raise ValueError('Must be an equal number of registers and values')
 
