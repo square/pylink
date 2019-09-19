@@ -378,6 +378,16 @@ class JLink(object):
                 self.close()
 
     def _get_register_index_from_name(self, register):
+        """
+        Converts a register name to a register index
+
+        Args:
+            self (JLink): the ``JLink`` instance
+            register (str): the register name
+
+        Returns:
+          ``int``
+        """
         regs = list(self.register_name(idx) for idx in self.register_list())
         if isinstance(register, six.string_types):
             try:
