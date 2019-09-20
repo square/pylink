@@ -4998,3 +4998,22 @@ class JLink(object):
             raise errors.JLinkRTTException(res)
 
         return res
+
+###############################################################################
+#
+# System control Co-Processor (CP15) API
+#
+###############################################################################
+
+    @connection_required
+    def cp15_present(self):
+        """Returns whether target has CP15 co-processor.
+
+        Returns:
+            ``True`` if the target has CP15 co-processor, otherwise ``False``.
+        """
+
+        result = False
+        if self._dll.JLINKARM_CP15_IsPresent() != 0:
+            result = True
+        return result
