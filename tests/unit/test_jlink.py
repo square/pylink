@@ -5998,6 +5998,38 @@ class TestJLink(unittest.TestCase):
         with self.assertRaises(JLinkException):
             self.jlink.rtt_write(0, [])
 
+    def test_cp15_register_read_returns_result_from_JLINKARM_CP15_ReadEx(self):
+        """Tests that cp15_register_read returns whatever value CP15_ReadEx
+        returns.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 1234
+
+        def read_data(cr_n, cr_m, op_1, op_2, value):
+            value.contents.value = expected
+            return self.dll.JLINKARM_CP15_ReadEx.return_value
+
+        self.dll.JLINKARM_CP15_ReadEx.return_value = 0
+        self.dll.JLINKARM_CP15_ReadEx.side_effect = read_data
+        actual = self.jlink.cp15_register_read(0, 0, 0, 0)
+        assert actual == expected
+
+    def test_cp15_register_read_raises_exception_if_CP15_ReadEx_fails(self):
+        """Tests that cp15_register_read raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_ReadEx.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.cp15_register_read(0, 0, 0, 0)
+
 
 if __name__ == '__main__':
     unittest.main()
