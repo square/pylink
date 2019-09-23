@@ -31,6 +31,7 @@ import math
 import operator
 import sys
 import time
+import six
 
 
 logger = logging.getLogger(__name__)
@@ -375,6 +376,26 @@ class JLink(object):
 
             if self.opened():
                 self.close()
+
+    def _get_register_index_from_name(self, register):
+        """
+        Converts a register name to a register index
+
+        Args:
+            self (JLink): the ``JLink`` instance
+            register (str): the register name
+
+        Returns:
+          ``int``
+        """
+        regs = list(self.register_name(idx) for idx in self.register_list())
+        if isinstance(register, six.string_types):
+            try:
+                result = regs.index(register)
+            except ValueError:
+                error_message = "No register found matching name: {}. (available registers: {})"
+                raise errors.JLinkException(error_message.format(register, ', '.join(regs)))
+        return result
 
     def opened(self):
         """Returns whether the DLL is open.
@@ -3044,11 +3065,14 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          register_index (int): the register to read
+          register_index (int/str): the register to read
 
         Returns:
           The value stored in the given register.
         """
+        # TODO: rename 'register_index' to 'register'
+        if isinstance(register_index, six.string_types):
+            register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
     @connection_required
@@ -3067,7 +3091,12 @@ class JLink(object):
         Raises:
           JLinkException: if a given register is invalid or an error occurs.
         """
+        # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(0)
 
@@ -3091,7 +3120,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          reg_index (int): the ARM register to write to
+          reg_index (int/str): the ARM register to write to
           value (int): the value to write to the register
 
         Returns:
@@ -3100,6 +3129,9 @@ class JLink(object):
         Raises:
           JLinkException: on write error.
         """
+        # TODO: rename 'reg_index' to 'register'
+        if isinstance(reg_index, six.string_types):
+            reg_index = self._get_register_index_from_name(reg_index)
         res = self._dll.JLINKARM_WriteReg(reg_index, value)
         if res != 0:
             raise errors.JLinkException('Error writing to register %d' % reg_index)
@@ -3125,10 +3157,15 @@ class JLink(object):
           ValueError: if ``len(register_indices) != len(values)``
           JLinkException: if a register could not be written to or on error
         """
+        # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         if len(register_indices) != len(values):
             raise ValueError('Must be an equal number of registers and values')
 
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(*values)
 
