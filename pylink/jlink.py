@@ -5042,3 +5042,25 @@ class JLink(object):
         else:
             value = value.value
         return value
+
+    @open_required
+    def cp15_register_write(self, cr_n, op_1, cr_m, op_2, value):
+        """Writes value to specified coprocessor register.
+
+        Args:
+          cr_n (int): CRn value
+          op_1 (int): Op1 value
+          cr_m (int): CRm value
+          op_2 (int): Op2 value
+          value (int): value to write
+
+        Returns:
+          An integer containing the result of the command
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINKARM_CP15_WriteEx(cr_n, cr_m, op_1, op_2, value)
+        if res != 0:
+            raise errors.JLinkException(res)
+        return res

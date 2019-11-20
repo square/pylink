@@ -6045,6 +6045,32 @@ class TestJLink(unittest.TestCase):
         with self.assertRaises(JLinkException):
             self.jlink.cp15_register_read(0, 0, 0, 0)
 
+    def test_cp15_register_write_success(self):
+        """Tests that cp15_register_write uses provided parameters.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        args = [1, 2, 3, 4, 5]
+
+        self.dll.JLINKARM_CP15_WriteEx.return_value = 0
+        actual = self.jlink.cp15_register_write(*args)
+        assert self.dll.JLINKARM_CP15_WriteEx.called_once_with(*args)
+
+    def test_cp15_register_write_raises_exception_if_CP15_WriteEx_fails(self):
+        """Tests that cp15_register_write raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_WriteEx.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.cp15_register_write(0, 0, 0, 0, 0)
+
 
 if __name__ == '__main__':
     unittest.main()
