@@ -10,3 +10,4 @@ In the order of appearance in the commit history:
 | Marek Novak               | @MarekNovakNXP     |
 | Michał Fita               | @michalfita        |
 | Bojan Potočnik            | @bojanpotocnik     |
+| Sottas Guillaume          | @sauci             |
