@@ -5998,6 +5998,21 @@ class TestJLink(unittest.TestCase):
         with self.assertRaises(JLinkException):
             self.jlink.rtt_write(0, [])
 
+    def test_cp15_present_returns_true(self):
+        """Tests that cp15_present returns ``True`` when CP15_IsPresent
+        returns a value different from 0 and ``False`` when CP15_IsPresent
+        returns a value equal to 0.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_IsPresent.return_value = 0
+        assert self.jlink.cp15_present() is False
+        self.dll.JLINKARM_CP15_IsPresent.return_value = 1
+        assert self.jlink.cp15_present() is True
+
     def test_cp15_register_read_returns_result_from_JLINKARM_CP15_ReadEx(self):
         """Tests that cp15_register_read returns whatever value CP15_ReadEx
         returns.
