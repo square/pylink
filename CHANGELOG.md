@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.0]
+
+### Added
+
+- @sauci: Added CP15 API: `cp15_present`, `cp15_register_read`, and
+  `cp15_register_write`.
+
 ## [0.3.0]
 
 ### Changed
