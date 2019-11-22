@@ -5998,6 +5998,79 @@ class TestJLink(unittest.TestCase):
         with self.assertRaises(JLinkException):
             self.jlink.rtt_write(0, [])
 
+    def test_cp15_present_returns_true(self):
+        """Tests that cp15_present returns ``True`` when CP15_IsPresent
+        returns a value different from 0 and ``False`` when CP15_IsPresent
+        returns a value equal to 0.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_IsPresent.return_value = 0
+        assert self.jlink.cp15_present() is False
+        self.dll.JLINKARM_CP15_IsPresent.return_value = 1
+        assert self.jlink.cp15_present() is True
+
+    def test_cp15_register_read_returns_result_from_JLINKARM_CP15_ReadEx(self):
+        """Tests that cp15_register_read returns whatever value CP15_ReadEx
+        returns.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 1234
+
+        def read_data(cr_n, cr_m, op_1, op_2, value):
+            value.contents.value = expected
+            return self.dll.JLINKARM_CP15_ReadEx.return_value
+
+        self.dll.JLINKARM_CP15_ReadEx.return_value = 0
+        self.dll.JLINKARM_CP15_ReadEx.side_effect = read_data
+        actual = self.jlink.cp15_register_read(0, 0, 0, 0)
+        assert actual == expected
+
+    def test_cp15_register_read_raises_exception_if_CP15_ReadEx_fails(self):
+        """Tests that cp15_register_read raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_ReadEx.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.cp15_register_read(0, 0, 0, 0)
+
+    def test_cp15_register_write_success(self):
+        """Tests that cp15_register_write uses provided parameters.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        args = [1, 2, 3, 4, 5]
+
+        self.dll.JLINKARM_CP15_WriteEx.return_value = 0
+        actual = self.jlink.cp15_register_write(*args)
+        assert self.dll.JLINKARM_CP15_WriteEx.called_once_with(*args)
+
+    def test_cp15_register_write_raises_exception_if_CP15_WriteEx_fails(self):
+        """Tests that cp15_register_write raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_WriteEx.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.cp15_register_write(0, 0, 0, 0, 0)
+
 
 if __name__ == '__main__':
     unittest.main()
