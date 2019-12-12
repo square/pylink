@@ -722,8 +722,8 @@ class JLink(object):
           JLinkException: if there is no connected JLink.
         """
         if self._jlink_open:
-          self._dll.JLINKARM_Close()
-          self._jlink_open = False
+            self._dll.JLINKARM_Close()
+            self._jlink_open = False
 
         if self._lock is not None:
             del self._lock
