@@ -274,6 +274,7 @@ class JLink(object):
         self._swo_enabled = False
         self._lock = None
         self._device = None
+        self._jlink_open = False
 
         # Bind Types for function calls.
         self._dll.JLINKARM_OpenEx.restype = ctypes.POINTER(ctypes.c_char)
@@ -692,6 +693,7 @@ class JLink(object):
             func = enums.JLinkFunctions.UNSECURE_HOOK_PROTOTYPE(unsecure_hook)
             self._dll.JLINK_SetHookUnsecureDialog(func)
 
+        self._jlink_open = True
         return None
 
     def open_tunnel(self, serial_no, port=19020):
@@ -719,7 +721,9 @@ class JLink(object):
         Raises:
           JLinkException: if there is no connected JLink.
         """
-        self._dll.JLINKARM_Close()
+        if self._jlink_open:
+          self._dll.JLINKARM_Close()
+          self._jlink_open = False
 
         if self._lock is not None:
             del self._lock

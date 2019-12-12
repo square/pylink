@@ -818,8 +818,7 @@ class TestJLink(unittest.TestCase):
             jl.open(serial_no=123456789)
             self.dll.JLINKARM_OpenEx.assert_called()
         self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
-        # 2 instead of 1 because jlink.close() is also called from jlink.open().
-        self.assertEqual(2, self.dll.JLINKARM_Close.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_Close.call_count)
 
     @mock.patch('pylink.jlock.JLock', new=mock.Mock())
     def test_jlink_open_dll_failed(self):
@@ -914,7 +913,7 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_OpenEx.assert_not_called()
 
     def test_jlink_close(self):
-        """Tests the J-Link ``close()`` method.
+        """Tests the J-Link ``close()`` method
 
         Args:
           self (TestJLink): the ``TestJLink`` instance
@@ -922,6 +921,12 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
+        # close() does nothing if there has been no open() call first.
+        self.jlink.close()
+        self.assertEqual(0, self.dll.JLINKARM_Close.call_count)
+
+        # Try again, but now simulate having called open().
+        self.jlink._jlink_open = True
         self.jlink.close()
         self.assertEqual(1, self.dll.JLINKARM_Close.call_count)
 
@@ -935,9 +940,10 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         # Use open_tunnel=None to avoid implicitly opening the connection.
-        with jlink.JLink(self.lib, open_tunnel=None):
+        with jlink.JLink(self.lib, open_tunnel=None) as context_jlink:
             self.dll.JLINKARM_OpenEx.assert_not_called()
             self.dll.JLINKARM_Close.assert_not_called()
+            context_jlink._jlink_open = True
         # .close() is first called when exiting the context manager
         # Depending on the system - GC operation, it can also already be
         # called from __del__ when the object is garbage collected.
