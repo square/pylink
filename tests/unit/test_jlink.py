@@ -947,10 +947,11 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.dll.JLINKARM_OpenEx.return_value = 0
-        with jlink.JLink(self.lib, serial_no=123456789) as jl:
-            self.assertTrue(jl.opened())  # Opened in CM.
+        # Use open_tunnel=None to avoid implicitly opening the connection.
+        with jlink.JLink(self.lib, open_tunnel=None) as jl:
             self.dll.JLINKARM_Close.assert_not_called()
+            # Bump the refcount without calling .open().
+            jl._open_refcount = 1
         # .close() is first called when exiting the context manager
         # Depending on the system - GC operation, it can also already be
         # called from __del__ when the object is garbage collected.
