@@ -924,13 +924,11 @@ class TestJLink(unittest.TestCase):
         # close() does nothing if there has been no open() call first.
         self.jlink.close()
         self.assertEqual(0, self.dll.JLINKARM_Close.call_count)
-
         # close() decrements the refcount if open() has been called multiple times.
         self.jlink._open_refcount = 5
         self.jlink.close()
         self.assertEqual(0, self.dll.JLINKARM_Close.call_count)
         self.assertEqual(4, self.jlink._open_refcount)
-
         # close() calls the DLL close method when refcount is exhausted.
         self.jlink._open_refcount = 1
         self.jlink.close()
