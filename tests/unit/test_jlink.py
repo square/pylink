@@ -818,8 +818,7 @@ class TestJLink(unittest.TestCase):
             jl.open(serial_no=123456789)
             self.dll.JLINKARM_OpenEx.assert_called()
         self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
-        # 2 instead of 1 because jlink.close() is also called from jlink.open().
-        self.assertEqual(2, self.dll.JLINKARM_Close.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_Close.call_count)
 
     @mock.patch('pylink.jlock.JLock', new=mock.Mock())
     def test_jlink_open_dll_failed(self):
@@ -922,8 +921,21 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
+        # close() does nothing if there has been no open() call first.
+        self.jlink.close()
+        self.assertEqual(0, self.dll.JLINKARM_Close.call_count)
+
+        # close() decrements the refcount if open() has been called multiple times.
+        self.jlink._open_refcount = 5
+        self.jlink.close()
+        self.assertEqual(0, self.dll.JLINKARM_Close.call_count)
+        self.assertEqual(4, self.jlink._open_refcount)
+
+        # close() calls the DLL close method when refcount is exhausted.
+        self.jlink._open_refcount = 1
         self.jlink.close()
         self.assertEqual(1, self.dll.JLINKARM_Close.call_count)
+        self.assertEqual(0, self.jlink._open_refcount)
 
     def test_jlink_close_context_manager(self):
         """Tests the J-Link ``close()`` method using context manager.
@@ -934,10 +946,11 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        # Use open_tunnel=None to avoid implicitly opening the connection.
-        with jlink.JLink(self.lib, open_tunnel=None):
-            self.dll.JLINKARM_OpenEx.assert_not_called()
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        with jlink.JLink(self.lib, ip_addr='127.0.0.1:80') as jl:
+            self.assertTrue(jl.opened())
             self.dll.JLINKARM_Close.assert_not_called()
+
         # .close() is first called when exiting the context manager
         # Depending on the system - GC operation, it can also already be
         # called from __del__ when the object is garbage collected.

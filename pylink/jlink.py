@@ -275,6 +275,10 @@ class JLink(object):
         self._lock = None
         self._device = None
 
+        # Track the number of .open() calls to avoid multiple calls to
+        # JLINKARM_Close, which can cause a crash.
+        self._open_refcount = 0
+
         # Bind Types for function calls.
         self._dll.JLINKARM_OpenEx.restype = ctypes.POINTER(ctypes.c_char)
         self._dll.JLINKARM_GetCompileDateTime.restype = ctypes.POINTER(ctypes.c_char)
@@ -639,6 +643,9 @@ class JLink(object):
           TypeError: if ``serial_no`` is present, but not ``int`` coercible.
           AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
         """
+        if self._open_refcount > 0:
+            self._open_refcount += 1
+            return None
 
         # For some reason, the J-Link driver complains if this isn't called
         # first (may have something to do with it trying to establish a
@@ -692,6 +699,7 @@ class JLink(object):
             func = enums.JLinkFunctions.UNSECURE_HOOK_PROTOTYPE(unsecure_hook)
             self._dll.JLINK_SetHookUnsecureDialog(func)
 
+        self._open_refcount = 1
         return None
 
     def open_tunnel(self, serial_no, port=19020):
@@ -719,6 +727,14 @@ class JLink(object):
         Raises:
           JLinkException: if there is no connected JLink.
         """
+        if self._open_refcount == 0:
+            # Do nothing if .open() has not been called.
+            return None
+
+        self._open_refcount -= 1
+        if self._open_refcount > 0:
+            return None
+
         self._dll.JLINKARM_Close()
 
         if self._lock is not None:
