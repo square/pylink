@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.5.0]
+
+### Changed
+
+- @rjshade: Changed `.open()` and `.close()` to operate using a reference
+  count; DLL is now only closed if open reference count is zero.
+
 ## [0.4.0]
 
 ### Added
