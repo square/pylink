@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.6.0]
+
+### Added
+
+- @hkpeprah: Added 'rtt_get_buf_descriptor()', and 'rtt_get_status()' with
+  associated structures for describing an RTT buffer, and the status of an
+  RTT control block.
+
+### Changed
+
+- @hkpeprah: Changed 'rtt_start()' to take optional block address to specify
+  where RTT block starts.
+
 ## [0.5.0]
 
 ### Changed
