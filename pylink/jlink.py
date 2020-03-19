@@ -31,6 +31,7 @@ import math
 import operator
 import sys
 import time
+import six
 
 
 logger = logging.getLogger(__name__)
@@ -214,7 +215,8 @@ class JLink(object):
             return wrapper
         return _interface_required
 
-    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None):
+    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None,
+                 serial_no=None, ip_addr=None, open_tunnel=False):
         """Initializes the J-Link interface object.
 
         Note:
@@ -236,6 +238,16 @@ class JLink(object):
             default this his writes to standard error
           unsecure_hook (function): function to be called for the unsecure
             dialog
+          serial_no (int): serial number of the J-Link
+          ip_addr (str): IP address and port of the J-Link
+            (e.g. 192.168.1.1:80)
+          open_tunnel (bool, None): If ``False`` (default), the ``open``
+            method will be called when entering the context manager using
+            the ``serial_no`` and ``ip_addr`` provided here.
+            If ``True`` ``open_tunnel`` method will be called instead
+            of ``open`` method.
+            If ``None``, the driver will not be opened automatically
+            (however, it is still closed when exiting the context manager).
 
         Returns:
           ``None``
@@ -263,6 +275,10 @@ class JLink(object):
         self._lock = None
         self._device = None
 
+        # Track the number of .open() calls to avoid multiple calls to
+        # JLINKARM_Close, which can cause a crash.
+        self._open_refcount = 0
+
         # Bind Types for function calls.
         self._dll.JLINKARM_OpenEx.restype = ctypes.POINTER(ctypes.c_char)
         self._dll.JLINKARM_GetCompileDateTime.restype = ctypes.POINTER(ctypes.c_char)
@@ -273,11 +289,83 @@ class JLink(object):
         self.log_handler = lambda s: (log or logger.info)(s.decode())
         self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode())
 
+        # Parameters used for open() in context manager
+        self.__serial_no = serial_no
+        self.__ip_addr = ip_addr
+        self.__open_tunnel = open_tunnel
+
         self._initialized = True
 
     def __del__(self):
         """Destructor for the ``JLink`` instance.  Closes the J-Link connection
         if one exists.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          ``None``
+        """
+        # weakref callbacks are rather low level, and working out how to use
+        # them correctly requires a bit of head scratching.  One must find
+        # somewhere to store the weakref till after the referent is dead, and
+        # without accidentally keeping the referent alive.  Then one must
+        # ensure that the callback frees the weakref (without leaving any
+        # remnant ref-cycles).
+        #
+        # When it is an option, using a __del__ method is far less hassle.
+        #
+        # Source: https://bugs.python.org/issue15528
+        self._finalize()
+
+    def __enter__(self):
+        """Connects to the J-Link emulator (defaults to USB) using context manager.
+
+        Parameters passed to __init__ are used for open() function.
+
+        Returns:
+          the ``JLink`` instance
+
+        Raises:
+          JLinkException: if fails to open (i.e. if device is unplugged)
+          TypeError: if ``serial_no`` is present, but not ``int`` coercible.
+          AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
+        """
+        if self.__open_tunnel is False:
+            self.open(serial_no=self.__serial_no, ip_addr=self.__ip_addr)
+        elif self.__open_tunnel is True:
+            self.open_tunnel(serial_no=self.__serial_no)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Closes the JLink connection on exit of the context manager.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          exc_type (BaseExceptionType, None): the exception class, if any
+            raised inside the context manager
+          exc_val (BaseException, None): the exception object, if any raised
+            inside the context manager
+          exc_tb (TracebackType, None): the exception traceback, if any
+            exception was raised inside the context manager.
+
+        Returns:
+          ``True`` if exception raised inside the context manager was handled
+            and shall be suppressed (not propagated), ``None`` otherwise.
+        """
+        self._finalize()
+        # Do not return anything to pass on all other exceptions.
+
+    def _finalize(self):
+        """Finalizer ("destructor") for the ``JLink`` instance.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+        Called when exiting the context manager or when this object is
+        destructed (garbage collected).
 
         Args:
           self (JLink): the ``JLink`` instance
@@ -292,6 +380,26 @@ class JLink(object):
 
             if self.opened():
                 self.close()
+
+    def _get_register_index_from_name(self, register):
+        """
+        Converts a register name to a register index
+
+        Args:
+            self (JLink): the ``JLink`` instance
+            register (str): the register name
+
+        Returns:
+          ``int``
+        """
+        regs = list(self.register_name(idx) for idx in self.register_list())
+        if isinstance(register, six.string_types):
+            try:
+                result = regs.index(register)
+            except ValueError:
+                error_message = "No register found matching name: {}. (available registers: {})"
+                raise errors.JLinkException(error_message.format(register, ', '.join(regs)))
+        return result
 
     def opened(self):
         """Returns whether the DLL is open.
@@ -535,6 +643,9 @@ class JLink(object):
           TypeError: if ``serial_no`` is present, but not ``int`` coercible.
           AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
         """
+        if self._open_refcount > 0:
+            self._open_refcount += 1
+            return None
 
         # For some reason, the J-Link driver complains if this isn't called
         # first (may have something to do with it trying to establish a
@@ -588,6 +699,7 @@ class JLink(object):
             func = enums.JLinkFunctions.UNSECURE_HOOK_PROTOTYPE(unsecure_hook)
             self._dll.JLINK_SetHookUnsecureDialog(func)
 
+        self._open_refcount = 1
         return None
 
     def open_tunnel(self, serial_no, port=19020):
@@ -615,6 +727,14 @@ class JLink(object):
         Raises:
           JLinkException: if there is no connected JLink.
         """
+        if self._open_refcount == 0:
+            # Do nothing if .open() has not been called.
+            return None
+
+        self._open_refcount -= 1
+        if self._open_refcount > 0:
+            return None
+
         self._dll.JLINKARM_Close()
 
         if self._lock is not None:
@@ -2961,11 +3081,14 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          register_index (int): the register to read
+          register_index (int/str): the register to read
 
         Returns:
           The value stored in the given register.
         """
+        # TODO: rename 'register_index' to 'register'
+        if isinstance(register_index, six.string_types):
+            register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
     @connection_required
@@ -2984,7 +3107,12 @@ class JLink(object):
         Raises:
           JLinkException: if a given register is invalid or an error occurs.
         """
+        # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(0)
 
@@ -3008,7 +3136,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          reg_index (int): the ARM register to write to
+          reg_index (int/str): the ARM register to write to
           value (int): the value to write to the register
 
         Returns:
@@ -3017,6 +3145,9 @@ class JLink(object):
         Raises:
           JLinkException: on write error.
         """
+        # TODO: rename 'reg_index' to 'register'
+        if isinstance(reg_index, six.string_types):
+            reg_index = self._get_register_index_from_name(reg_index)
         res = self._dll.JLINKARM_WriteReg(reg_index, value)
         if res != 0:
             raise errors.JLinkException('Error writing to register %d' % reg_index)
@@ -3042,10 +3173,15 @@ class JLink(object):
           ValueError: if ``len(register_indices) != len(values)``
           JLinkException: if a register could not be written to or on error
         """
+        # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         if len(register_indices) != len(values):
             raise ValueError('Must be an equal number of registers and values')
 
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(*values)
 
@@ -4933,4 +5069,70 @@ class JLink(object):
         if res < 0:
             raise errors.JLinkRTTException(res)
 
+        return res
+
+###############################################################################
+#
+# System control Co-Processor (CP15) API
+#
+###############################################################################
+
+    @connection_required
+    def cp15_present(self):
+        """Returns whether target has CP15 co-processor.
+
+        Returns:
+            ``True`` if the target has CP15 co-processor, otherwise ``False``.
+        """
+
+        result = False
+        if self._dll.JLINKARM_CP15_IsPresent() != 0:
+            result = True
+        return result
+
+    @open_required
+    def cp15_register_read(self, cr_n, op_1, cr_m, op_2):
+        """Reads value from specified coprocessor register.
+
+        Args:
+          cr_n (int): CRn value
+          op_1 (int): Op1 value
+          cr_m (int): CRm value
+          op_2 (int): Op2 value
+
+        Returns:
+          An integer containing the value of coprocessor register
+
+        Raises:
+          JLinkException: on error
+        """
+        value = ctypes.c_uint32(0)
+        p_value = ctypes.pointer(value)
+        res = self._dll.JLINKARM_CP15_ReadEx(cr_n, cr_m, op_1, op_2, p_value)
+        if res != 0:
+            raise errors.JLinkException(res)
+        else:
+            value = value.value
+        return value
+
+    @open_required
+    def cp15_register_write(self, cr_n, op_1, cr_m, op_2, value):
+        """Writes value to specified coprocessor register.
+
+        Args:
+          cr_n (int): CRn value
+          op_1 (int): Op1 value
+          cr_m (int): CRm value
+          op_2 (int): Op2 value
+          value (int): value to write
+
+        Returns:
+          An integer containing the result of the command
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINKARM_CP15_WriteEx(cr_n, cr_m, op_1, op_2, value)
+        if res != 0:
+            raise errors.JLinkException(res)
         return res

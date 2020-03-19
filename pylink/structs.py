@@ -242,7 +242,7 @@ class JLinkHardwareStatus(ctypes.Structure):
       trst: measured state of TRST pin.
     """
     _fields_ = [
-        ('VTarget', ctypes.c_uint32),
+        ('VTarget', ctypes.c_uint16),
         ('tck', ctypes.c_uint8),
         ('tdi', ctypes.c_uint8),
         ('tdo', ctypes.c_uint8),
@@ -260,7 +260,7 @@ class JLinkHardwareStatus(ctypes.Structure):
         Returns:
           String representation of the instance.
         """
-        return '%s(VTarget=%dmA)' % (self.__class__.__name__, self.voltage)
+        return '%s(VTarget=%dmV)' % (self.__class__.__name__, self.voltage)
 
     @property
     def voltage(self):

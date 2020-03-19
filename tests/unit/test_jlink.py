@@ -556,6 +556,25 @@ class TestJLink(unittest.TestCase):
         with self.assertRaises(AttributeError):
             self.jlink.open()
 
+    def test_jlink_open_unspecified_context_manager(self):
+        """Tests the J-Link ``open()`` method (using context manager)
+        with an unspecified method.
+
+        When opening a connection to an emulator, we need to specify
+        by which method we are connecting to the emulator.  If neither USB or
+        Ethernet or specified, then we should raise an error.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        with self.assertRaises(AttributeError):
+            with jlink.JLink(self.lib) as jl:
+                self.assertTrue(jl.opened())  # Opened in CM.
+            self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
+
     def test_jlink_open_ethernet_failed(self):
         """Tests the J-Link ``open()`` method over Ethernet failing.
 
@@ -571,6 +590,27 @@ class TestJLink(unittest.TestCase):
 
         with self.assertRaises(JLinkException):
             self.jlink.open(ip_addr='127.0.0.1:80')
+
+        self.dll.JLINKARM_SelectIP.assert_called_once()
+
+    def test_jlink_open_ethernet_failed_context_manager(self):
+        """Tests the J-Link ``open()`` method (using context manager)
+        over Ethernet failing.
+
+        If we fail to select a J-Link over ethernet, it should raise an error.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_SelectIP.return_value = 1
+
+        with self.assertRaises(JLinkException):
+            with jlink.JLink(self.lib, ip_addr='127.0.0.1:80') as jl:
+                self.assertTrue(jl.opened())  # Opened in CM.
+            self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
 
         self.dll.JLINKARM_SelectIP.assert_called_once()
 
@@ -593,6 +633,27 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_SelectIP.assert_called_once()
 
     @mock.patch('pylink.jlock.JLock', new=mock.Mock())
+    def test_jlink_open_ethernet_context_manager(self):
+        """Tests the J-Link ``open()`` method (using context manager)
+        over Ethernet succeeding.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLNKARM_SelectIP.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        self.dll.JLINKARM_GetSN.return_value = 123456789
+
+        with jlink.JLink(self.lib, ip_addr='127.0.0.1:80') as jl:
+            self.assertTrue(jl.opened())  # Opened in CM.
+        self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
+
+        self.dll.JLINKARM_SelectIP.assert_called_once()
+
+    @mock.patch('pylink.jlock.JLock', new=mock.Mock())
     def test_jlink_open_ethernet_and_serial_number(self):
         """Tests the J-Link ``open()`` method over Ethernet succeeding with
         identification done by serial number.
@@ -606,6 +667,26 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_OpenEx.return_value = 0
 
         self.jlink.open(serial_no=123456789, ip_addr='127.0.0.1:80')
+
+        self.assertEqual(0, self.dll.JLINKARM_EMU_SelectIP.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_EMU_SelectIPBySN.call_count)
+
+    @mock.patch('pylink.jlock.JLock', new=mock.Mock())
+    def test_jlink_open_ethernet_and_serial_number_context_manager(self):
+        """Tests the J-Link ``open()`` method (using context manager) over
+        Ethernet succeeding with identification done by serial number.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_OpenEx.return_value = 0
+
+        with jlink.JLink(self.lib, serial_no=123456789, ip_addr='127.0.0.1:80') as jl:
+            self.assertTrue(jl.opened())  # Opened in CM.
+        self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
 
         self.assertEqual(0, self.dll.JLINKARM_EMU_SelectIP.call_count)
         self.assertEqual(1, self.dll.JLINKARM_EMU_SelectIPBySN.call_count)
@@ -628,6 +709,26 @@ class TestJLink(unittest.TestCase):
 
         self.dll.JLINKARM_SelectIP.assert_called_once_with('tunnel:123456789'.encode(), 19020)
 
+    def test_jlink_open_tunnel_context_manager(self):
+        """Tests the J-Link ``open_tunnel()`` method (using context manager)
+        over tunnel succeeding with default port value.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLNKARM_SelectIP.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        self.dll.JLINKARM_GetSN.return_value = 123456789
+
+        with jlink.JLink(self.lib, serial_no=123456789, open_tunnel=True) as jl:
+            self.assertTrue(jl.opened())  # Opened in CM.
+        self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
+
+        self.dll.JLINKARM_SelectIP.assert_called_once_with('tunnel:123456789'.encode(), 19020)
+
     def test_jlink_open_serial_number_failed(self):
         """Tests the J-Link ``open()`` method over USB by serial number, but
         failing.
@@ -642,6 +743,25 @@ class TestJLink(unittest.TestCase):
 
         with self.assertRaises(JLinkException):
             self.jlink.open(serial_no=123456789)
+
+        self.assertEqual(0, self.dll.JLINKARM_OpenEx.call_count)
+
+    def test_jlink_open_serial_number_failed_context_manager(self):
+        """Tests the J-Link ``open()`` method (using context manager)
+        over USB by serial number, but failing.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_EMU_SelectByUSBSN.return_value = -1
+
+        with self.assertRaises(JLinkException):
+            with jlink.JLink(self.lib, serial_no=123456789) as jl:
+                self.assertTrue(jl.opened())  # Opened in CM.
+            self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
 
         self.assertEqual(0, self.dll.JLINKARM_OpenEx.call_count)
 
@@ -662,6 +782,45 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
 
     @mock.patch('pylink.jlock.JLock', new=mock.Mock())
+    def test_jlink_open_serial_number_context_manager(self):
+        """Tests the J-Link ``open()`` method (using context manager)
+        over USB by serial number and succeeding.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_EMU_SelectByUSBSN.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        with jlink.JLink(self.lib, serial_no=123456789) as jl:
+            self.assertTrue(jl.opened())  # Opened in CM.
+        self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
+        self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
+
+    @mock.patch('pylink.jlock.JLock', new=mock.Mock())
+    def test_jlink_open_serial_number_context_manager_manual(self):
+        """Tests the J-Link ``open()`` method in context manager
+        over USB by serial number and succeeding.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_EMU_SelectByUSBSN.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        with jlink.JLink(self.lib, open_tunnel=None) as jl:
+            # Requires manual open as open_tunnel=None.
+            self.dll.JLINKARM_OpenEx.assert_not_called()
+            jl.open(serial_no=123456789)
+            self.dll.JLINKARM_OpenEx.assert_called()
+        self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_Close.call_count)
+
+    @mock.patch('pylink.jlock.JLock', new=mock.Mock())
     def test_jlink_open_dll_failed(self):
         """Tests the J-Link ``open()`` method failing to open the DLL.
 
@@ -678,6 +837,29 @@ class TestJLink(unittest.TestCase):
 
         with self.assertRaisesRegexp(JLinkException, 'Error!'):
             self.jlink.open(serial_no=123456789)
+
+        self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
+
+    @mock.patch('pylink.jlock.JLock', new=mock.Mock())
+    def test_jlink_open_dll_failed_context_manager(self):
+        """Tests the J-Link ``open()`` method (using context manager)
+         failing to open the DLL.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_EMU_SelectByUSBSN.return_value = 0
+
+        buf = ctypes.create_string_buffer(b'Error!', 32)
+        self.dll.JLINKARM_OpenEx.return_value = ctypes.addressof(buf)
+
+        with self.assertRaisesRegexp(JLinkException, 'Error!'):
+            with jlink.JLink(self.lib, serial_no=123456789) as jl:
+                self.assertTrue(jl.opened())  # Opened in CM.
+            self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
 
         self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
 
@@ -704,6 +886,32 @@ class TestJLink(unittest.TestCase):
 
         self.dll.JLINKARM_OpenEx.assert_not_called()
 
+    @mock.patch('pylink.jlock.JLock')
+    def test_jlink_open_lock_failed_context_manager(self, mock_jlock):
+        """Tests the J-Link ``open()`` method (using context manager)
+        failing if the lockfile is held.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+          mock_jlock (Mock): the mocked lock instance
+
+        Returns:
+          ``None``
+        """
+        mock_lock = mock.Mock()
+        mock_jlock.return_value = mock_lock
+        mock_lock.acquire.return_value = False
+
+        self.dll.JLINKARM_EMU_SelectByUSBSN.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+
+        with self.assertRaisesRegexp(JLinkException, 'J-Link is already open.'):
+            with jlink.JLink(self.lib, serial_no=123456789) as jl:
+                self.assertTrue(jl.opened())  # Opened in CM.
+            self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
+
+        self.dll.JLINKARM_OpenEx.assert_not_called()
+
     def test_jlink_close(self):
         """Tests the J-Link ``close()`` method.
 
@@ -713,8 +921,40 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
+        # close() does nothing if there has been no open() call first.
+        self.jlink.close()
+        self.assertEqual(0, self.dll.JLINKARM_Close.call_count)
+
+        # close() decrements the refcount if open() has been called multiple times.
+        self.jlink._open_refcount = 5
+        self.jlink.close()
+        self.assertEqual(0, self.dll.JLINKARM_Close.call_count)
+        self.assertEqual(4, self.jlink._open_refcount)
+
+        # close() calls the DLL close method when refcount is exhausted.
+        self.jlink._open_refcount = 1
         self.jlink.close()
         self.assertEqual(1, self.dll.JLINKARM_Close.call_count)
+        self.assertEqual(0, self.jlink._open_refcount)
+
+    def test_jlink_close_context_manager(self):
+        """Tests the J-Link ``close()`` method using context manager.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        with jlink.JLink(self.lib, ip_addr='127.0.0.1:80') as jl:
+            self.assertTrue(jl.opened())
+            self.dll.JLINKARM_Close.assert_not_called()
+
+        # .close() is first called when exiting the context manager
+        # Depending on the system - GC operation, it can also already be
+        # called from __del__ when the object is garbage collected.
+        self.assertIn(self.dll.JLINKARM_Close.call_count, (1, 2))
 
     def test_jlink_test(self):
         """Tests the J-Link self test.
@@ -3644,6 +3884,21 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ReadReg.return_value = 0xFF
         self.assertEqual(0xFF, self.jlink.register_read(0))
 
+    def test_jlink_register_read_single_from_name(self):
+        """Tests reading a single register at a time.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_GetRegisterList.return_value = 1
+        self.dll.JLINKARM_GetRegisterName.return_value = 'R0'.encode()
+        self.dll.JLINKARM_ReadReg.return_value = 0xFF
+
+        self.assertEqual(0xFF, self.jlink.register_read('R0'))
+
     def test_jlink_register_read_multiple_failure(self):
         """Tests failing to read multiple registers at once.
 
@@ -3674,6 +3929,53 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(10, len(res))
         self.assertTrue(all(x == 0 for x in res))
 
+    def test_jlink_register_read_multiple_from_name_failure(self):
+        """Tests successfully reading multiple registers at once.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def register_list(buf, _):
+            num_items = 3
+            for i in range(num_items):
+                buf[i] = i
+            return num_items
+
+        self.dll.JLINKARM_ReadRegs.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.side_effect = register_list
+        self.dll.JLINKARM_GetRegisterName.side_effect = lambda idx: 'R{}'.format(idx + 10).encode()
+
+        with self.assertRaises(JLinkException) as exception:
+            self.jlink.register_read_multiple(['R{}'.format(idx) for idx in range(3)])
+        assert str(exception.exception) == 'No register found matching name: R0. (available registers: R10, R11, R12)'
+
+    def test_jlink_register_read_multiple_from_name_success(self):
+        """Tests successfully reading multiple registers at once.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def register_list(buf, num_items):
+            for i in range(num_items):
+                buf[i] = i
+            return num_items
+
+        self.dll.JLINKARM_ReadRegs.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.side_effect = register_list
+        self.dll.JLINKARM_GetRegisterName.side_effect = lambda idx: 'R{}'.format(idx).encode()
+
+        res = self.jlink.register_read_multiple(['R{}'.format(idx) for idx in range(10)])
+
+        self.assertTrue(isinstance(res, list))
+        self.assertEqual(10, len(res))
+        self.assertTrue(all(x == 0 for x in res))
+
     def test_jlink_register_write_single_failure(self):
         """Tests failing to write to a single register.
 
@@ -3699,6 +4001,20 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINKARM_WriteReg.return_value = 0
         self.assertEqual(0xFF, self.jlink.register_write(0, 0xFF))
+
+    def test_jlink_register_write_single_from_name_success(self):
+        """Tests successfully writing to a single register.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_WriteReg.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.return_value = 1
+        self.dll.JLINKARM_GetRegisterName.return_value = 'R0'.encode()
+        self.assertEqual(0xFF, self.jlink.register_write('R0', 0xFF))
 
     def test_jlink_register_write_multiple_failure(self):
         """Tests failing to write to multiple registers at once.
@@ -3736,6 +4052,32 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_WriteRegs.return_value = 0
 
         res = self.jlink.register_write_multiple([0, 1], [0xFF, 0xFF])
+        self.assertEqual(None, res)
+
+        indices, values, _, count = self.dll.JLINKARM_WriteRegs.call_args[0]
+        self.assertEqual(2, count)
+        self.assertEqual(list(indices), [0, 1])
+        self.assertEqual(list(values), [0xFF] * count)
+
+    def test_jlink_register_write_multiple_from_name_success(self):
+        """Tests succussfully writing to multiple registers at once.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def register_list(buf, num_items):
+            for i in range(num_items):
+                buf[i] = i
+            return num_items
+
+        self.dll.JLINKARM_WriteRegs.return_value = 0
+        self.dll.JLINKARM_GetRegisterList.side_effect = register_list
+        self.dll.JLINKARM_GetRegisterName.side_effect = lambda idx: 'R{}'.format(idx).encode()
+
+        res = self.jlink.register_write_multiple(['R0', 'R1'], [0xFF, 0xFF])
         self.assertEqual(None, res)
 
         indices, values, _, count = self.dll.JLINKARM_WriteRegs.call_args[0]
@@ -5754,6 +6096,79 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINK_RTTERMINAL_Write.return_value = -1
         with self.assertRaises(JLinkException):
             self.jlink.rtt_write(0, [])
+
+    def test_cp15_present_returns_true(self):
+        """Tests that cp15_present returns ``True`` when CP15_IsPresent
+        returns a value different from 0 and ``False`` when CP15_IsPresent
+        returns a value equal to 0.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_IsPresent.return_value = 0
+        assert self.jlink.cp15_present() is False
+        self.dll.JLINKARM_CP15_IsPresent.return_value = 1
+        assert self.jlink.cp15_present() is True
+
+    def test_cp15_register_read_returns_result_from_JLINKARM_CP15_ReadEx(self):
+        """Tests that cp15_register_read returns whatever value CP15_ReadEx
+        returns.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        expected = 1234
+
+        def read_data(cr_n, cr_m, op_1, op_2, value):
+            value.contents.value = expected
+            return self.dll.JLINKARM_CP15_ReadEx.return_value
+
+        self.dll.JLINKARM_CP15_ReadEx.return_value = 0
+        self.dll.JLINKARM_CP15_ReadEx.side_effect = read_data
+        actual = self.jlink.cp15_register_read(0, 0, 0, 0)
+        assert actual == expected
+
+    def test_cp15_register_read_raises_exception_if_CP15_ReadEx_fails(self):
+        """Tests that cp15_register_read raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_ReadEx.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.cp15_register_read(0, 0, 0, 0)
+
+    def test_cp15_register_write_success(self):
+        """Tests that cp15_register_write uses provided parameters.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        args = [1, 2, 3, 4, 5]
+
+        self.dll.JLINKARM_CP15_WriteEx.return_value = 0
+        actual = self.jlink.cp15_register_write(*args)
+        assert self.dll.JLINKARM_CP15_WriteEx.called_once_with(*args)
+
+    def test_cp15_register_write_raises_exception_if_CP15_WriteEx_fails(self):
+        """Tests that cp15_register_write raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_CP15_WriteEx.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.cp15_register_write(0, 0, 0, 0, 0)
 
 
 if __name__ == '__main__':

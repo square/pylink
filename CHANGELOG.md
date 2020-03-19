@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.5.0]
+
+### Changed
+
+- @rjshade: Changed `.open()` and `.close()` to operate using a reference
+  count; DLL is now only closed if open reference count is zero.
+
+## [0.4.0]
+
+### Added
+
+- @sauci: Added CP15 API: `cp15_present`, `cp15_register_read`, and
+  `cp15_register_write`.
+
+## [0.3.0]
+
+### Changed
+
+- @charliebruce: Fix for 'VTarget' in hardware status; incorrectly assigned to
+  32-bit instead of 16-bit integer.
+- @charliebruce: Fix for documentation for 'VTarget' in hardware status;
+  incorrectly displayed mA instead of mV.
+- @sauci: Changed register methods ('register_read()',
+  'register_read_multiple()', 'register_write()', and
+  'register_write_multiple()') to alternatively take regsiter names instead of
+  just register indices.
+
+## [0.2.0]
+
+### Added
+
+- @bojanpotocnik: Implemented context manager to enable automatic debugger
+  connection opening when context is entered, and connection closed when
+  exited.
+
+### Changed
+
+- @bojanpotocnik: Implemented finalizer method '_finalize()' to tear down
+  connection on destructor.
+
 ## [0.1.3]
 
 ### Changed
