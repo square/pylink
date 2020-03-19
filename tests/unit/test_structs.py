@@ -400,6 +400,70 @@ class TestStructs(unittest.TestCase):
         self.assertEqual(rep, str(region))
         self.assertEqual(rep, repr(region))
 
+    def test_jlink_rtt_terminal_start(self):
+        """Tests the ``JLinkRTTerminalStart`` structure.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        start = structs.JLinkRTTerminalStart()
+        rep = 'JLinkRTTerminalStart(ConfigAddress=0x0)'
+        self.assertEqual(rep, repr(start))
+
+        start.ConfigBlockAddress = 0xDEADBEEF
+        rep = 'JLinkRTTerminalStart(ConfigAddress=0xDEADBEEF)'
+        self.assertEqual(rep, str(start))
+
+    def test_jlink_rtt_terminal_buf_desc(self):
+        """Tests the ``JLinkRTTerminalBufDesc`` structure.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        desc = structs.JLinkRTTerminalBufDesc()
+        desc.BufferIndex = 7
+        desc.SizeOfBuffer = 1337
+        desc.Flags = 0
+        desc.acName = str.encode('The Winds of Winter')
+
+        desc.Direction = 0
+        self.assertTrue(desc.up)
+        self.assertFalse(desc.down)
+
+        desc.Direction = 1
+        self.assertTrue(desc.down)
+        self.assertFalse(desc.up)
+
+        self.assertEqual('The Winds of Winter', desc.name)
+        self.assertEqual('JLinkRTTerminalBufDesc(Index=7, Name=The Winds of Winter)', repr(desc))
+        self.assertEqual('The Winds of Winter <Index=7, Direction=down, Size=1337>', str(desc))
+
+        desc.Direction = 0
+        self.assertEqual('The Winds of Winter <Index=7, Direction=up, Size=1337>', str(desc))
+
+    def test_jlink_rtt_terminal_stat(self):
+        """Tests the ``JLinkRTTerminalStatus`` structure.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        stat = structs.JLinkRTTerminalStatus()
+        stat.NumUpBuffers = 3
+        stat.NumDownBuffers = 3
+        stat.IsRunning = 1
+
+        self.assertEqual('JLinkRTTerminalStatus(NumUpBuffers=3, NumDownBuffers=3)', repr(stat))
+        self.assertEqual('Status <NumUpBuffers=3, NumDownBuffers=3, Running=1>', str(stat))
+
 
 if __name__ == '__main__':
     unittest.main()

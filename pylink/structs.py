@@ -1101,3 +1101,163 @@ class JLinkTraceRegion(ctypes.Structure):
           String representation of the trace region.
         """
         return '%s(Index=%d)' % (self.__class__.__name__, self.RegionIndex)
+
+
+class JLinkRTTerminalStart(ctypes.Structure):
+    """Structure used to configure an RTT instance.
+
+    Attributes:
+      ConfigBlockAddress: Address of the RTT block.
+    """
+    _fields_ = [
+        ('ConfigBlockAddress', ctypes.c_uint32),
+        ('Reserved', ctypes.c_uint32 * 3)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStart): RTT start instance.
+
+        Returns:
+          String representation of the instance.
+        """
+        return '%s(ConfigAddress=0x%X)' % (self.__class__.__name__, self.ConfigBlockAddress)
+
+    def __str__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStart): RTT start instance.
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__repr__()
+
+
+class JLinkRTTerminalBufDesc(ctypes.Structure):
+    """Structure describing a RTT buffer.
+
+    Attributes:
+      BufferIndex: index of the buffer to request information about.
+      Direction: direction of the upper (`0` for up, `1` for Down).
+      acName: Name of the buffer.
+      SizeOfBuffer: size of the buffer in bytes.
+      Flags: flags set on the buffer.
+    """
+    _fields_ = [
+        ('BufferIndex', ctypes.c_int32),
+        ('Direction', ctypes.c_uint32),
+        ('acName', ctypes.c_char * 32),
+        ('SizeOfBuffer', ctypes.c_uint32),
+        ('Flags', ctypes.c_uint32)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          String representation of the buffer descriptor.
+        """
+        return '%s(Index=%d, Name=%s)' % (self.__class__.__name__, self.BufferIndex, self.name)
+
+    def __str__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          String representation of the buffer descriptor.
+        """
+        dir_string = 'up' if self.up else 'down'
+        return '%s <Index=%d, Direction=%s, Size=%s>' % (self.name, self.BufferIndex,
+                                                         dir_string, self.SizeOfBuffer)
+
+    @property
+    def up(self):
+        """Returns a boolean indicating if the buffer is an 'UP' buffer.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          ``True`` if the buffer is an 'UP' buffer, otherwise ``False``.
+        """
+        return (self.Direction == 0)
+
+    @property
+    def down(self):
+        """Returns a boolean indicating if the buffer is an 'DOWN' buffer.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          ``True`` if the buffer is an 'DOWN' buffer, otherwise ``False``.
+        """
+        return (self.Direction == 1)
+
+    @property
+    def name(self):
+        """Returns the name of the buffer.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          String name of the buffer.
+        """
+        return self.acName.decode()
+
+
+class JLinkRTTerminalStatus(ctypes.Structure):
+    """Structure describing the status of the RTT terminal.
+
+    Attributes:
+      NumBytesTransferred: number of bytes sent to the client application.
+      NumBytesRead: number of bytes read from the target.
+      HostOverflowCount: number of overflows on the host.
+      IsRunning: if RTT is running.
+      NumUpBuffers: number of 'UP' buffers.
+      NumDownBuffers: number of 'DOWN' buffers.
+    """
+    _fields_ = [
+        ('NumBytesTransferred', ctypes.c_uint32),
+        ('NumBytesRead', ctypes.c_uint32),
+        ('HostOverflowCount', ctypes.c_int),
+        ('IsRunning', ctypes.c_int),
+        ('NumUpBuffers', ctypes.c_int),
+        ('NumDownBuffers', ctypes.c_int),
+        ('Reserved', ctypes.c_uint32 * 2)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStatus): the status instance.
+
+        Returns:
+          Strings representation of the status.
+        """
+        return '%s(NumUpBuffers=%d, NumDownBuffers=%d)' % (self.__class__.__name__,
+                                                           self.NumUpBuffers, self.NumDownBuffers)
+
+    def __str__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStatus): the status instance.
+
+        Returns:
+          Strings representation of the status.
+        """
+        return 'Status <NumUpBuffers=%d, NumDownBuffers=%d, Running=%s>' % (self.NumUpBuffers,
+                                                                            self.NumDownBuffers,
+                                                                            self.IsRunning)
