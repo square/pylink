@@ -74,7 +74,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.open')
     @mock.patch('os.write')
     @mock.patch('os.remove')
-    @mock.patch('pylink.jlock.psutil')
+    @mock.patch('pylink.jlock.util')
     @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_exists(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests trying to acquire when the lock exists for an active process.
@@ -82,7 +82,7 @@ class TestJLock(unittest.TestCase):
         Args:
           self (TestJLock): the ``TestJLock`` instance
           mock_open (Mock): mocked built-in open method
-          mock_util (Mock): mocked ``psutil`` module
+          mock_util (Mock): mocked ``util`` module
           mock_rm (Mock): mocked os remove method
           mock_wr (Mock): mocked os write method
           mock_op (Mock): mocked os open method
@@ -122,7 +122,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.open')
     @mock.patch('os.write')
     @mock.patch('os.remove')
-    @mock.patch('pylink.jlock.psutil')
+    @mock.patch('pylink.jlock.util')
     @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_os_error(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests trying to acquire the lock but generating an os-level error.
@@ -130,7 +130,7 @@ class TestJLock(unittest.TestCase):
         Args:
           self (TestJLock): the ``TestJLock`` instance
           mock_open (Mock): mocked built-in open method
-          mock_util (Mock): mocked ``psutil`` module
+          mock_util (Mock): mocked ``util`` module
           mock_rm (Mock): mocked os remove method
           mock_wr (Mock): mocked os write method
           mock_op (Mock): mocked os open method
@@ -167,7 +167,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.open')
     @mock.patch('os.write')
     @mock.patch('os.remove')
-    @mock.patch('pylink.jlock.psutil')
+    @mock.patch('pylink.jlock.util')
     @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_bad_file(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests acquiring the lockfile when the current lockfile is invallid.
@@ -175,7 +175,7 @@ class TestJLock(unittest.TestCase):
         Args:
           self (TestJLock): the ``TestJLock`` instance
           mock_open (Mock): mocked built-in open method
-          mock_util (Mock): mocked ``psutil`` module
+          mock_util (Mock): mocked ``util`` module
           mock_rm (Mock): mocked os remove method
           mock_wr (Mock): mocked os write method
           mock_op (Mock): mocked os open method
@@ -216,7 +216,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.open')
     @mock.patch('os.write')
     @mock.patch('os.remove')
-    @mock.patch('pylink.jlock.psutil')
+    @mock.patch('pylink.jlock.util')
     @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_invalid_pid(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests acquiring the lockfile when the pid in the lockfile is invalid.
@@ -224,7 +224,7 @@ class TestJLock(unittest.TestCase):
         Args:
           self (TestJLock): the ``TestJLock`` instance
           mock_open (Mock): mocked built-in open method
-          mock_util (Mock): mocked ``psutil`` module
+          mock_util (Mock): mocked ``util`` module
           mock_rm (Mock): mocked os remove method
           mock_wr (Mock): mocked os write method
           mock_op (Mock): mocked os open method
@@ -263,7 +263,7 @@ class TestJLock(unittest.TestCase):
     @mock.patch('os.open')
     @mock.patch('os.write')
     @mock.patch('os.remove')
-    @mock.patch('pylink.jlock.psutil')
+    @mock.patch('pylink.jlock.util')
     @mock.patch('pylink.jlock.open')
     def test_jlock_acquire_old_pid(self, mock_open, mock_util, mock_rm, mock_wr, mock_op, mock_exists, mock_close):
         """Tests acquiring when the PID in the lockfile does not exist.
@@ -271,7 +271,7 @@ class TestJLock(unittest.TestCase):
         Args:
           self (TestJLock): the ``TestJLock`` instance
           mock_open (Mock): mocked built-in open method
-          mock_util (Mock): mocked ``psutil`` module
+          mock_util (Mock): mocked ``util`` module
           mock_rm (Mock): mocked os remove method
           mock_wr (Mock): mocked os write method
           mock_op (Mock): mocked os open method

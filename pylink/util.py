@@ -17,6 +17,8 @@ from . import enums
 
 import platform
 import sys
+import os
+import ctypes
 
 
 def is_integer(val):
@@ -180,3 +182,64 @@ def calculate_parity(n):
         y += n & 1
         n = n >> 1
     return y & 1
+
+
+def pid_exists_win32(pid):
+    ERROR_ACCESS_DENIED = 0x5
+    ERROR_INVALID_PARAMETER = 0x57
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    STILL_ACTIVE = 0x103
+
+    if pid == 0:
+        return True
+    elif pid == -1:
+        return False
+
+    hProcess = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not hProcess:
+        error = ctypes.windll.kernel32.GetLastError()
+        if error == ERROR_ACCESS_DENIED:
+            return True
+        elif error == ERROR_INVALID_PARAMETER:
+            return False
+        else:
+            raise ctypes.WinError()
+
+    exitCode = ctypes.c_int(0)
+    pExitCode = ctypes.pointer(exitCode)
+    if not ctypes.windll.kernel32.GetExitCodeProcess(hProcess, pExitCode):
+        error = ctypes.windll.kernel32.GetLastError()
+        if error == ERROR_ACCESS_DENIED:
+            ctypes.windll.kernel32.CloseHandle(hProcess)
+            return True
+        else:
+            raise ctypes.WinError()
+
+    if exitCode.value == STILL_ACTIVE:
+        ctypes.windll.kernel32.CloseHandle(hProcess)
+        return True
+
+    ctypes.windll.kernel32.CloseHandle(hProcess)
+    return False
+
+
+def pid_exists_posix(pid):
+    if pid == 0:
+        return True
+    elif pid < 0:
+        return False
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def pid_exists(pid):
+    if sys.platform.startswith('win') or sys.platform.startswith('cygwin'):
+        return pid_exists_win32(pid)
+    else:
+        return pid_exists_posix(pid)
