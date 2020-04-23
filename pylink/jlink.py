@@ -696,8 +696,8 @@ class JLink(object):
         # on versions greater than V4.98a.
         unsecure_hook = self._unsecure_hook
         if unsecure_hook is not None and hasattr(self._dll, 'JLINK_SetHookUnsecureDialog'):
-            func = enums.JLinkFunctions.UNSECURE_HOOK_PROTOTYPE(unsecure_hook)
-            self._dll.JLINK_SetHookUnsecureDialog(func)
+            self.unsecure_hook = enums.JLinkFunctions.UNSECURE_HOOK_PROTOTYPE(unsecure_hook)
+            self._dll.JLINK_SetHookUnsecureDialog(self.unsecure_hook)
 
         self._open_refcount = 1
         return None
