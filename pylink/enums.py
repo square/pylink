@@ -322,9 +322,7 @@ class JLinkFunctions(object):
     """Collection of function prototype and type builders for the J-Link SDK
     API calls."""
     LOG_PROTOTYPE = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
-    """UNSECURE_HOOK_PROTOTYPE is used for JLINK_SetHookUnsecureDialog which is stdcall,
-    so we should use WINFUNCTYPE here."""
-    UNSECURE_HOOK_PROTOTYPE = ctypes.WINFUNCTYPE(ctypes.c_int,
+    UNSECURE_HOOK_PROTOTYPE = ctypes.CFUNCTYPE(ctypes.c_int,
                                                ctypes.c_char_p,
                                                ctypes.c_char_p,
                                                ctypes.c_uint32)
