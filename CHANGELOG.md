@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.6.1]
+
+### Changed
+
+- @Moral-ecomo: Fixed issue where unsecure hook was unbounded due to not being
+  bound to the class instance.
+
 ## [0.6.0]
 
 ### Added
