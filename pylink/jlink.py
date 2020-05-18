@@ -1066,6 +1066,15 @@ class JLink(object):
         if verbose:
             self.exec_command('EnableRemarks = 1')
 
+        # Determine which device we are.  This is essential for using methods
+        # like 'unlock' or 'lock'.
+        index = self._dll.JLINKARM_DEVICE_GetIndex(chip_name.encode('ascii'))
+
+        if index <= 0:
+            raise errors.JLinkException('Unsupported device selected.')
+
+        self._device = self.supported_device(index)
+
         # This is weird but is currently the only way to specify what the
         # target is to the J-Link.
         self.exec_command('Device = %s' % chip_name)
@@ -1088,16 +1097,6 @@ class JLink(object):
             self.halted()
         except errors.JLinkException:
             pass
-
-        # Determine which device we are.  This is essential for using methods
-        # like 'unlock' or 'lock'.
-        for index in range(self.num_supported_devices()):
-            device = self.supported_device(index)
-            if device.name.lower() == chip_name.lower():
-                self._device = device
-                break
-        else:
-            raise errors.JLinkException('Unsupported device was connected to.')
 
         return None
 
