@@ -502,6 +502,22 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, len(connected_emulators))
         self.assertTrue(isinstance(connected_emulators[0], structs.JLinkConnectInfo))
 
+    def test_jlink_get_device_index(self):
+        """Tests the J-Link ``get_device_index()`` method.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
+        self.assertEqual(self.jlink.get_device_index("device"), 1)
+
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 0
+        with self.assertRaises(JLinkException):
+            self.jlink.get_device_index("device")
+
     def test_jlink_num_supported_devices(self):
         """Tests the J-Link ``num_supported_devices()`` method.
 
