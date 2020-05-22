@@ -633,7 +633,9 @@ class JLink(object):
 
         Returns:
           Index of the device with the matching chip name.
-          If the chip is unsupported, returns ``<=0``.
+
+        Raises:
+          ``JLinkException``: if chip is unsupported.
         """
         index = self._dll.JLINKARM_DEVICE_GetIndex(chip_name.encode('ascii'))
 
