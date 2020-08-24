@@ -65,7 +65,7 @@ class JLock(object):
         self.acquired = False
         self.fd = None
         self.path = None
-        self.path = os.path.join(tempfile.tempdir, self.name)
+        self.path = os.path.join(tempfile.gettempdir(), self.name)
 
     def __del__(self):
         """Cleans up the lockfile instance if it was acquired.
