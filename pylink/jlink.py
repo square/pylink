@@ -5016,7 +5016,7 @@ class JLink(object):
         if bytes_read < 0:
             raise errors.JLinkRTTException(bytes_read)
 
-        return list(buf)[:bytes_read]
+        return list(buf[:bytes_read])
 
     @open_required
     def rtt_write(self, buffer_index, data):
