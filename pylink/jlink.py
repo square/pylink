@@ -52,7 +52,7 @@ class JLink(object):
     MAX_NUM_CPU_REGISTERS = 256
 
     # Maximum speed (in kHz) that can be passed to `set_speed()`.
-    MAX_JTAG_SPEED = 12000
+    MAX_JTAG_SPEED = 50000
 
     # Minimum speed (in kHz) that can be passed to `set_speed()`.
     MIN_JTAG_SPEED = 5
