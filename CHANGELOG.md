@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.7.0]
+
+### Changed
+
+- @cy18: Reduced memory / CPU usage of `rtt_read()` by slicing buffer before
+  converting to list in return value of `rtt_read()`.
+- @twam: Changed maximum JTAG speed from 12MHz to 50MHz.
+- @thetic: Fixed issue where `tempfile.tempdir` could be `None` when creating a
+  path for the library copy; switched to using `tempfile.gettempdir()` which
+  populates the cached variable if unset.
+
 ## [0.6.1]
 
 ### Changed
