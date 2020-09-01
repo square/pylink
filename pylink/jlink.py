@@ -174,7 +174,7 @@ class JLink(object):
         return wrapper
 
     def coresight_configuration_required(func):
-        """Decorator to specify that a coresight configuration or target connection 
+        """Decorator to specify that a coresight configuration or target connection
         is required in order for the given method to be used.
 
         Args:
@@ -309,8 +309,8 @@ class JLink(object):
         # Track the number of .open() calls to avoid multiple calls to
         # JLINKARM_Close, which can cause a crash.
         self._open_refcount = 0
-		
-		self.coresight_configured = False
+
+        self.coresight_configured = False
 
         # Bind Types for function calls.
         self._dll.JLINKARM_OpenEx.restype = ctypes.POINTER(ctypes.c_char)
@@ -767,8 +767,8 @@ class JLink(object):
         self._open_refcount -= 1
         if self._open_refcount > 0:
             return None
-		
-		self.coresight_configured = False	
+
+        self.coresight_configured = False
 
         self._dll.JLINKARM_Close()
 
@@ -1027,7 +1027,7 @@ class JLink(object):
                 raise errors.JLinkException(res)
 
             self.coresight_configured = True
-            
+
             return None
 
         # JTAG requires more setup than SWD.
