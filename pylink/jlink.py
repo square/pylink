@@ -199,7 +199,7 @@ class JLink(object):
             Raises:
               JLinkException: if the JLink's target is not connected.
             """
-            if not self.target_connected() and not self.coresight_configured:
+            if not self.target_connected() and not self._coresight_configured:
                 raise errors.JLinkException('Target is not connected neither coresight is not configured.')
             return func(self, *args, **kwargs)
         return wrapper
@@ -310,7 +310,7 @@ class JLink(object):
         # JLINKARM_Close, which can cause a crash.
         self._open_refcount = 0
 
-        self.coresight_configured = False
+        self._coresight_configured = False
 
         # Bind Types for function calls.
         self._dll.JLINKARM_OpenEx.restype = ctypes.POINTER(ctypes.c_char)
@@ -768,7 +768,7 @@ class JLink(object):
         if self._open_refcount > 0:
             return None
 
-        self.coresight_configured = False
+        self._coresight_configured = False
 
         self._dll.JLINKARM_Close()
 
@@ -1026,7 +1026,7 @@ class JLink(object):
             if res < 0:
                 raise errors.JLinkException(res)
 
-            self.coresight_configured = True
+            self._coresight_configured = True
 
             return None
 
@@ -1041,7 +1041,7 @@ class JLink(object):
         if res < 0:
             raise errors.JLinkException(res)
 
-        self.coresight_configured = True
+        self._coresight_configured = True
 
         return None
 
