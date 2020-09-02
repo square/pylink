@@ -173,6 +173,37 @@ class JLink(object):
             return func(self, *args, **kwargs)
         return wrapper
 
+    def coresight_configuration_required(func):
+        """Decorator to specify that a coresight configuration or target connection
+        is required in order for the given method to be used.
+
+        Args:
+          func (function): function being decorated
+
+        Returns:
+          The wrapper function.
+        """
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            """Wrapper function to check that the given ``JLink`` has been
+            connected to a target or at least the coresight configuration has been done.
+
+            Args:
+              self (JLink): the ``JLink`` instance
+              args: list of arguments to pass to the wrapped function
+              kwargs: key-word arguments dict to pass to the wrapped function
+
+            Returns:
+              The return value of the wrapped function.
+
+            Raises:
+              JLinkException: if the JLink's target is not connected.
+            """
+            if not self.target_connected() and not self._coresight_configured:
+                raise errors.JLinkException('Target is not connected neither coresight is not configured.')
+            return func(self, *args, **kwargs)
+        return wrapper
+
     def interface_required(interface):
         """Decorator to specify that a particular interface type is required
         for the given method to be used.
@@ -278,6 +309,8 @@ class JLink(object):
         # Track the number of .open() calls to avoid multiple calls to
         # JLINKARM_Close, which can cause a crash.
         self._open_refcount = 0
+
+        self._coresight_configured = False
 
         # Bind Types for function calls.
         self._dll.JLINKARM_OpenEx.restype = ctypes.POINTER(ctypes.c_char)
@@ -735,6 +768,8 @@ class JLink(object):
         if self._open_refcount > 0:
             return None
 
+        self._coresight_configured = False
+
         self._dll.JLINKARM_Close()
 
         if self._lock is not None:
@@ -991,6 +1026,8 @@ class JLink(object):
             if res < 0:
                 raise errors.JLinkException(res)
 
+            self._coresight_configured = True
+
             return None
 
         # JTAG requires more setup than SWD.
@@ -1003,6 +1040,8 @@ class JLink(object):
         res = self._dll.JLINKARM_CORESIGHT_Configure(config_string.encode())
         if res < 0:
             raise errors.JLinkException(res)
+
+        self._coresight_configured = True
 
         return None
 
@@ -3278,7 +3317,7 @@ class JLink(object):
         self._dll.JLINKARM_ETM_WriteReg(int(register_index), int(value), int(delay))
         return None
 
-    @connection_required
+    @coresight_configuration_required
     def coresight_read(self, reg, ap=True):
         """Reads an Ap/DP register on a CoreSight DAP.
 
@@ -3307,7 +3346,7 @@ class JLink(object):
 
         return data.value
 
-    @connection_required
+    @coresight_configuration_required
     def coresight_write(self, reg, data, ap=True):
         """Writes an Ap/DP register on a CoreSight DAP.
 
