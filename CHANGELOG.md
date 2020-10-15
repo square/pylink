@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.8.1]
+
+### Changed
+
+- @RisinT96: Changed behaviour for getting the target device during `connect()`
+  to use `get_device_index()` instead of iterating manually through each
+  supported device; reduces speed of `connect()` from several seconds to sub
+  one second.
+
 ## [0.8.0]
 
 ### Changed
