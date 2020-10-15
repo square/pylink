@@ -624,6 +624,26 @@ class JLink(object):
 
         return list(info)[:num_found]
 
+    def get_device_index(self, chip_name):
+        """Finds index of device with chip name
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          chip_name (str): target chip name
+
+        Returns:
+          Index of the device with the matching chip name.
+
+        Raises:
+          ``JLinkException``: if chip is unsupported.
+        """
+        index = self._dll.JLINKARM_DEVICE_GetIndex(chip_name.encode('ascii'))
+
+        if index <= 0:
+            raise errors.JLinkException('Unsupported device selected.')
+
+        return index
+
     def num_supported_devices(self):
         """Returns the number of devices that are supported by the opened
         J-Link DLL.
@@ -1066,6 +1086,12 @@ class JLink(object):
         if verbose:
             self.exec_command('EnableRemarks = 1')
 
+        # Determine which device we are.  This is essential for using methods
+        # like 'unlock' or 'lock'.
+        index = self.get_device_index(chip_name)
+
+        self._device = self.supported_device(index)
+
         # This is weird but is currently the only way to specify what the
         # target is to the J-Link.
         self.exec_command('Device = %s' % chip_name)
@@ -1088,16 +1114,6 @@ class JLink(object):
             self.halted()
         except errors.JLinkException:
             pass
-
-        # Determine which device we are.  This is essential for using methods
-        # like 'unlock' or 'lock'.
-        for index in range(self.num_supported_devices()):
-            device = self.supported_device(index)
-            if device.name.lower() == chip_name.lower():
-                self._device = device
-                break
-        else:
-            raise errors.JLinkException('Unsupported device was connected to.')
 
         return None
 

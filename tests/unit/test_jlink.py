@@ -502,6 +502,22 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, len(connected_emulators))
         self.assertTrue(isinstance(connected_emulators[0], structs.JLinkConnectInfo))
 
+    def test_jlink_get_device_index(self):
+        """Tests the J-Link ``get_device_index()`` method.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
+        self.assertEqual(self.jlink.get_device_index("device"), 1)
+
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 0
+        with self.assertRaises(JLinkException):
+            self.jlink.get_device_index("device")
+
     def test_jlink_num_supported_devices(self):
         """Tests the J-Link ``num_supported_devices()`` method.
 
@@ -1267,6 +1283,11 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINKARM_Connect.return_value = -1
         self.dll.JLINKARM_IsHalted.return_value = 0
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
+
+        self.jlink.supported_device = mock.Mock()
+        self.jlink.supported_device.return_value = mock.Mock()
+        self.jlink.supported_device.return_value.name = 'device'
 
         with self.assertRaises(JLinkException):
             self.jlink.connect('device')
@@ -1274,6 +1295,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, self.dll.JLINKARM_ExecCommand.call_count)
         self.assertEqual(1, self.dll.JLINKARM_Connect.call_count)
         self.assertEqual(0, self.dll.JLINKARM_IsHalted.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
     @mock.patch('time.sleep')
     def test_jlink_connect_auto(self, mock_sleep):
@@ -1289,9 +1311,8 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
 
-        self.jlink.num_supported_devices = mock.Mock()
-        self.jlink.num_supported_devices.return_value = 1
         self.jlink.supported_device = mock.Mock()
         self.jlink.supported_device.return_value = mock.Mock()
         self.jlink.supported_device.return_value.name = 'device'
@@ -1301,6 +1322,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, self.dll.JLINKARM_ExecCommand.call_count)
         self.assertEqual(1, self.dll.JLINKARM_Connect.call_count)
         self.assertEqual(1, self.dll.JLINKARM_IsHalted.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
     @mock.patch('time.sleep')
     def test_jlink_connect_adaptive(self, mock_sleep):
@@ -1316,9 +1338,8 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
 
-        self.jlink.num_supported_devices = mock.Mock()
-        self.jlink.num_supported_devices.return_value = 1
         self.jlink.supported_device = mock.Mock()
         self.jlink.supported_device.return_value = mock.Mock()
         self.jlink.supported_device.return_value.name = 'device'
@@ -1328,6 +1349,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, self.dll.JLINKARM_ExecCommand.call_count)
         self.assertEqual(1, self.dll.JLINKARM_Connect.call_count)
         self.assertEqual(1, self.dll.JLINKARM_IsHalted.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
     @mock.patch('time.sleep')
     def test_jlink_connect_speed_invalid(self, mock_sleep):
@@ -1343,6 +1365,11 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
+
+        self.jlink.supported_device = mock.Mock()
+        self.jlink.supported_device.return_value = mock.Mock()
+        self.jlink.supported_device.return_value.name = 'device'
 
         with self.assertRaises(TypeError):
             self.jlink.connect('device', speed=-1)
@@ -1350,6 +1377,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, self.dll.JLINKARM_ExecCommand.call_count)
         self.assertEqual(0, self.dll.JLINKARM_Connect.call_count)
         self.assertEqual(0, self.dll.JLINKARM_IsHalted.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
     @mock.patch('time.sleep')
     def test_jlink_connect_speed(self, mock_sleep):
@@ -1365,9 +1393,8 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
 
-        self.jlink.num_supported_devices = mock.Mock()
-        self.jlink.num_supported_devices.return_value = 1
         self.jlink.supported_device = mock.Mock()
         self.jlink.supported_device.return_value = mock.Mock()
         self.jlink.supported_device.return_value.name = 'device'
@@ -1377,6 +1404,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(1, self.dll.JLINKARM_ExecCommand.call_count)
         self.assertEqual(1, self.dll.JLINKARM_Connect.call_count)
         self.assertEqual(1, self.dll.JLINKARM_IsHalted.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
     @mock.patch('time.sleep')
     def test_jlink_connect_verbose(self, mock_sleep):
@@ -1392,9 +1420,8 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
 
-        self.jlink.num_supported_devices = mock.Mock()
-        self.jlink.num_supported_devices.return_value = 1
         self.jlink.supported_device = mock.Mock()
         self.jlink.supported_device.return_value = mock.Mock()
         self.jlink.supported_device.return_value.name = 'device'
@@ -1404,6 +1431,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(2, self.dll.JLINKARM_ExecCommand.call_count)
         self.assertEqual(1, self.dll.JLINKARM_Connect.call_count)
         self.assertEqual(1, self.dll.JLINKARM_IsHalted.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
     @mock.patch('time.sleep')
     def test_jlink_connect_supported_device_not_found(self, mock_sleep):
@@ -1419,12 +1447,15 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
-
-        self.jlink.num_supported_devices = mock.Mock()
-        self.jlink.num_supported_devices.return_value = 0
+        self.dll.JLINKARM_DEVICE_GetIndex.return_value = -1
 
         with self.assertRaisesRegexp(JLinkException, 'Unsupported device'):
             self.jlink.connect('device')
+
+        self.assertEqual(0, self.dll.JLINKARM_ExecCommand.call_count)
+        self.assertEqual(0, self.dll.JLINKARM_Connect.call_count)
+        self.assertEqual(0, self.dll.JLINKARM_IsHalted.call_count)
+        self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
     def test_jlink_error(self):
         """Tests the J-Link ``error`` property.

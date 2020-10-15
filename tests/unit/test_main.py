@@ -348,8 +348,7 @@ class TestMain(unittest.TestCase):
         device = pylink.JLinkDeviceInfo()
         device.sName = name
 
-        mocked.num_supported_devices.return_value = 1
-        mocked.supported_device.return_value = device
+        mocked.get_device_index.side_effect = pylink.errors.JLinkException('Unsupported device selected.')
 
         args = ['emulator', '-s', 'USA']
         self.assertEqual(0, main.main(args))
@@ -357,6 +356,10 @@ class TestMain(unittest.TestCase):
 
         mock_stdout.truncate(0)
         mock_stdout.seek(0)
+
+        mocked.get_device_index.side_effect = None
+        mocked.get_device_index.return_value = 1
+        mocked.supported_device.return_value = device
 
         args = ['emulator', '-s', 'CANADA']
         self.assertEqual(0, main.main(args))
