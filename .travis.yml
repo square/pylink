@@ -7,7 +7,7 @@ os:
 
 python:
   - '2.7'
-  - '3.6'
+  - '3.8'
 
 install:
   - pip install -r requirements.txt
@@ -27,7 +27,7 @@ deploy:
   on:
     branch: master
     tags: true
-    python: 2.7
+    python: 3.8
   distributions: sdist bdist_wheel
 
 addons:
