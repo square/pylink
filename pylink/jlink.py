@@ -1949,7 +1949,7 @@ class JLink(object):
         """
         return self._dll.JLINKARM_SetResetType(strategy)
 
-    @connection_required
+    @open_required
     def set_reset_pin_high(self):
         """Sets the reset pin high.
 
@@ -1962,7 +1962,7 @@ class JLink(object):
         self._dll.JLINKARM_SetRESET()
         return None
 
-    @connection_required
+    @open_required
     def set_reset_pin_low(self):
         """Sets the reset pin low.
 
