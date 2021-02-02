@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.8.2]
+
+### Changed
+
+- @Gargy007: Changed decorator for toggling the reset pin, `set_reset_pin_high`
+  and `set_reset_pin_low` to `open_required()` instead of
+  `connection_required()` to allow toggling the reset pin when the debugger is
+  attached, but the target isn't connected.
+
 ## [0.8.1]
 
 ### Changed
