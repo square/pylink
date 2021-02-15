@@ -5191,7 +5191,7 @@ class JLink(object):
         if res != 0:
             raise errors.JLinkException(res)
         return res
-        
+
 ###############################################################################
 #
 # JTAG API (Raw JTAG access for boundary scan or other purposes)
@@ -5211,20 +5211,19 @@ class JLink(object):
         Returns:
           tdi (List): Output from device shifted into tdi.
         """
-        
+
         if len(tdo) != len(tms):
             raise ValueError("TMS & TDO arrays must be same length")
-        
+
         buf_size = len(tdo)
-        
+
         if numbits is None:
             numbits = len(tdo)*8
-        
+
         tdobuf = (ctypes.c_ubyte * buf_size)(*bytearray(tdo))
         tmsbuf = (ctypes.c_ubyte * buf_size)(*bytearray(tms))
         tdibuf = (ctypes.c_ubyte * buf_size)()
 
         self._dll.JLINKARM_JTAG_StoreGetRaw(tdobuf, tdibuf, tmsbuf, numbits)
-        
-        return list(tdibuf)
 
+        return list(tdibuf)
