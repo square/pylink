@@ -5199,7 +5199,7 @@ class JLink(object):
 ###############################################################################
 
     @interface_required(enums.JLinkInterfaces.JTAG)
-    def jtag_rawrw(self, tdo, tms, numbits=None):
+    def jtag_raw_rw(self, tdo, tms, numbits=None):
         """Writes a list of raw bits to TDO+TMS, returns TDI input.
 
         Args:
@@ -5218,7 +5218,7 @@ class JLink(object):
         buf_size = len(tdo)
 
         if numbits is None:
-            numbits = len(tdo)*8
+            numbits = len(tdo) * 8
 
         tdobuf = (ctypes.c_ubyte * buf_size)(*bytearray(tdo))
         tmsbuf = (ctypes.c_ubyte * buf_size)(*bytearray(tms))
