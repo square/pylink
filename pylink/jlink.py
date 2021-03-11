@@ -811,6 +811,25 @@ class JLink(object):
         return (res == 0)
 
     @open_required
+    def set_log_file(self, file_path):
+        """Sets the log file output path.
+        see https://wiki.segger.com/Enable_J-Link_log_file
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          file_path (str): the file path where the log file will be stored
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: on hardware error.
+        """
+        res = self._dll.JLINKARM_SetLogFile(file_path.encode())
+        if res:
+            raise errors.JLinkException(res)
+
+    @open_required
     def invalidate_firmware(self):
         """Invalidates the emulator's firmware.
 

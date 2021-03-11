@@ -6201,6 +6201,32 @@ class TestJLink(unittest.TestCase):
         with self.assertRaises(JLinkException):
             self.jlink.cp15_register_write(0, 0, 0, 0, 0)
 
+    def test_set_log_file_success(self):
+        """Tests that set_log_file uses provided parameters.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        args = ['my/file/path']
+        self.dll.JLINKARM_SetLogFile.return_value = 0
+        self.jlink.set_log_file(*args)
+        assert self.dll.JLINKARM_SetLogFile.called_once_with(*args)
+
+    def test_set_log_file_raises_exception_if_SetLogFile_fails(self):
+        """Tests that set_log_file raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_SetLogFile.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.set_log_file('my/file/path')
+
 
 if __name__ == '__main__':
     unittest.main()
