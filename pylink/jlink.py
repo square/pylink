@@ -823,7 +823,7 @@ class JLink(object):
           ``None``
 
         Raises:
-          JLinkException: on hardware error.
+          JLinkException: if the path specified is invalid.
         """
         res = self._dll.JLINKARM_SetLogFile(file_path.encode())
         if res:
