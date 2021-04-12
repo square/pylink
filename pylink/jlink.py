@@ -956,9 +956,6 @@ class JLink(object):
         """Enables showing dialog boxes on certain methods.
 
         Note:
-          Dialog boxes only appear on Windows platforms.
-
-        Note:
           This can be used for batch or automized test running.
 
         Args:
@@ -968,13 +965,13 @@ class JLink(object):
           ``None``
         """
         self.exec_command('SetBatchMode = 0')
+        self.exec_command("HideDeviceSelection = 0")
+        self.exec_command("EnableInfoWinFlashDL")
+        self.exec_command("EnableInfoWinFlashBPs")
 
     @minimum_required('5.02')
     def disable_dialog_boxes(self):
         """Disables showing dialog boxes on certain methods.
-
-        Note:
-          Dialog boxes only appear on Windows platforms.
 
         Warning:
           This has the effect of also silencing dialog boxes that appear when
@@ -993,6 +990,13 @@ class JLink(object):
         self.exec_command('SilentUpdateFW')
         self.exec_command('SuppressInfoUpdateFW')
         self.exec_command('SetBatchMode = 1')
+
+        # SuppressControlPanel
+        self.exec_command("HideDeviceSelection = 1")
+        self.exec_command("SuppressControlPanel")
+        # Hide Flash Windows
+        self.exec_command("DisableInfoWinFlashDL")
+        self.exec_command("DisableInfoWinFlashBPs")
 
     @open_required
     def jtag_configure(self, instr_regs=0, data_bits=0):

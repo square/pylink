@@ -1175,7 +1175,10 @@ class TestJLink(unittest.TestCase):
         self.dll.JLINKARM_GetDLLVersion.return_value = 50200
         self.jlink.exec_command = mock.Mock()
         self.jlink.enable_dialog_boxes()
-        self.jlink.exec_command.assert_called_with('SetBatchMode = 0')
+        self.jlink.exec_command.assert_any_call('SetBatchMode = 0')
+        self.jlink.exec_command.assert_any_call('HideDeviceSelection = 0')
+        self.jlink.exec_command.assert_any_call("EnableInfoWinFlashDL")
+        self.jlink.exec_command.assert_any_call("EnableInfoWinFlashBPs")
 
     def test_jlink_disable_dialog_boxes(self):
         """Tests disabling the dialog boxes shown by the DLL.
@@ -1192,6 +1195,10 @@ class TestJLink(unittest.TestCase):
         self.jlink.exec_command.assert_any_call('SilentUpdateFW')
         self.jlink.exec_command.assert_any_call('SuppressInfoUpdateFW')
         self.jlink.exec_command.assert_any_call('SetBatchMode = 1')
+        self.jlink.exec_command.assert_any_call('HideDeviceSelection = 1')
+        self.jlink.exec_command.assert_any_call('SuppressControlPanel')
+        self.jlink.exec_command.assert_any_call('DisableInfoWinFlashDL')
+        self.jlink.exec_command.assert_any_call('DisableInfoWinFlashBPs')
 
     def test_jlink_jtag_configure(self):
         """Tests the J-Link ``jtag_configure()`` method.
