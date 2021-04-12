@@ -11,3 +11,4 @@ In the order of appearance in the commit history:
 | Michał Fita               | @michalfita        |
 | Bojan Potočnik            | @bojanpotocnik     |
 | Sottas Guillaume          | @sauci             |
+| Volker Kettenbach         | @kettenbach-it     |
