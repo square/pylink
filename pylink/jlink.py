@@ -966,6 +966,8 @@ class JLink(object):
         """
         self.exec_command('SetBatchMode = 0')
         self.exec_command("HideDeviceSelection = 0")
+        self.exec_command("EnableInfoWinFlashDL")
+        self.exec_command("EnableInfoWinFlashBPs")
 
     @minimum_required('5.02')
     def disable_dialog_boxes(self):

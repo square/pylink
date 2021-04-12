@@ -1177,6 +1177,8 @@ class TestJLink(unittest.TestCase):
         self.jlink.enable_dialog_boxes()
         self.jlink.exec_command.assert_any_call('SetBatchMode = 0')
         self.jlink.exec_command.assert_any_call('HideDeviceSelection = 0')
+        self.jlink.exec_command.assert_any_call("EnableInfoWinFlashDL")
+        sself.jlink.exec_command.assert_any_call("EnableInfoWinFlashBPs")
 
     def test_jlink_disable_dialog_boxes(self):
         """Tests disabling the dialog boxes shown by the DLL.
