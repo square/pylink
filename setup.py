@@ -28,6 +28,9 @@ import setuptools
 import shutil
 import subprocess
 
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+os.chdir(SCRIPT_DIR)
+
 
 class CleanCommand(setuptools.Command):
     """Custom clean command."""
