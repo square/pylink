@@ -98,9 +98,9 @@ out our [troubleshooting](./TROUBLESHOOTING.md) document.
 
 Documentation follows the
 [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html),
-and uses [`Sphinx`](http://www.sphinx-doc.org/en/stable/) documentation
+and uses [Sphinx](http://www.sphinx-doc.org/en/stable/) documentation
 generator with the
-[`Napoleon`](http://www.sphinx-doc.org/en/stable/ext/napoleon.html) extension
+[Napoleon](http://www.sphinx-doc.org/en/stable/ext/napoleon.html) extension
 to provide Google style Python support.  To generate the documentation, these
 packages will need to be installed (they are included in the provided
 `requirements.txt` file).  With these packages installed, you can generate the
@@ -138,7 +138,7 @@ $ python setup.py bddtest
 ```
 
 There are two types of tests: `functional` and `unit`.  Information about both
-can be found under [`tests/README.md`](tests/README.md).
+can be found under [tests/README.md](tests/README.md).
 
 
 ### Coverage
