@@ -317,10 +317,10 @@ class JLink(object):
         self._dll.JLINKARM_GetCompileDateTime.restype = ctypes.POINTER(ctypes.c_char)
         self._dll.JLINKARM_GetRegisterName.restype = ctypes.POINTER(ctypes.c_char)
 
-        self.error_handler = lambda s: (error or logger.error)(s.decode())
-        self.warning_handler = lambda s: (warn or logger.warning)(s.decode())
-        self.log_handler = lambda s: (log or logger.info)(s.decode())
-        self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode())
+        self.error_handler = lambda s: (error or logger.error)(s.decode(errors='replace'))
+        self.warning_handler = lambda s: (warn or logger.warning)(s.decode(errors='replace'))
+        self.log_handler = lambda s: (log or logger.info)(s.decode(errors='replace'))
+        self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode(errors='replace'))
 
         # Parameters used for open() in context manager
         self.__serial_no = serial_no
