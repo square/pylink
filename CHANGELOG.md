@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.10.1]
+
+### Changed
+
+- @jsiverskog: Updated default logging code to pass `errors='repalce'` when
+  decoding the string from the library; fixes `UnicodeError`s causing an exit.
+
 ## [0.10.0]
 
 ### Changed

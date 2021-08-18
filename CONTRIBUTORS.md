@@ -12,3 +12,4 @@ In the order of appearance in the commit history:
 | Bojan Potočnik            | @bojanpotocnik     |
 | Sottas Guillaume          | @sauci             |
 | Volker Kettenbach         | @kettenbach-it     |
+| Jacob Siverskog           | @jsiverskog        |
