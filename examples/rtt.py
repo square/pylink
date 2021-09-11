@@ -152,4 +152,4 @@ def main(target_device, block_address=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1], None if len(sys.argv) < 2 else int(sys.argv[2], 16)))
+    sys.exit(main(sys.argv[1], None if len(sys.argv) < 3 else int(sys.argv[2], 16)))
