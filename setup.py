@@ -270,6 +270,7 @@ setuptools.setup(
 
     # Additional scripts.
     scripts=[
+        os.path.join('examples', 'pylink-rtt')
     ],
 
     # Entry points.

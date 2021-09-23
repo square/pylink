@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2017 Square, Inc.
 #
@@ -24,6 +25,7 @@
 # Copyright: 2017 Square, Inc.
 
 import pylink
+import argparse
 import sys
 import time
 from builtins import input
@@ -152,4 +154,14 @@ def main(target_device, block_address=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1], None if len(sys.argv) < 3 else int(sys.argv[2], 16)))
+    parser = argparse.ArgumentParser(description="Open RTT console.")
+    parser.add_argument(
+        "target_cpu",
+        help="Device Name (see https://www.segger.com/supported-devices/jlink/)")
+    parser.add_argument(
+        "rtt_block_address", help="RTT block address in hex",
+        type=lambda x: int(x, 16), nargs="?")
+
+    args = parser.parse_args()
+
+    sys.exit(main(args.target_cpu, args.rtt_block_address))
