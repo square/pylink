@@ -35,7 +35,7 @@ your operating system:
 
 #### On Mac
 
-```bash
+```
 # Option A: Copy the library to your libraries directory.
 $ cp libjlinkarm.dylib /usr/local/lib/
 
@@ -58,7 +58,7 @@ Alternatively, add the SEGGER J-Link directory to your `%PATH%`.
 
 #### On Linux
 
-```bash
+```
 # Option A: Copy the library to your libraries directory.
 $ cp libjlinkarm.so /usr/local/lib/
 
@@ -69,7 +69,7 @@ $ export LD_LIBRARY_PATH=/path/to/SEGGER/JLink:$LD_LIBRARY_PATH
 
 ## Usage
 
-```python
+```
 import pylink
 
 if __name__ == '__main__':
