@@ -3,7 +3,6 @@ coverage == 4.4.1
 future
 psutil >= 5.2.2
 pycodestyle >= 2.3.1
-pypandoc
 six
 sphinx == 1.4.8
 sphinx-argparse == 0.1.15
