@@ -13,3 +13,4 @@ In the order of appearance in the commit history:
 | Sottas Guillaume          | @sauci             |
 | Volker Kettenbach         | @kettenbach-it     |
 | Jacob Siverskog           | @jsiverskog        |
+| Johannes Neyer            | @johannesneyer     |
