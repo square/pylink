@@ -596,7 +596,14 @@ def main(args=None):
     logging.basicConfig(level=level)
 
     try:
-        args.command(args)
+        if hasattr(args, 'command'):
+            args.command(args)
+        else:
+            # Python 3 argparse won't create the command attribute and an
+            # AttributeError will be raised if no commands are specified. Note:
+            # Python 3.7 added support for subparsers being required.  Emulate
+            # Python 2 error here for consistent behavior.
+            parser.error('too few arguments')
     except pylink.JLinkException as e:
         sys.stderr.write('Error: %s%s' % (str(e), os.linesep))
         return 1
