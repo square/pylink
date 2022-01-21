@@ -2954,6 +2954,75 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(True, self.jlink.restart(10, skip_breakpoints=True))
         self.dll.JLINKARM_GoEx.called_once_with(10, enums.JLinkFlags.GO_OVERSTEP_BP)
 
+    @mock.patch("time.sleep")
+    def test_jlink_resume_on_success(self, mock_sleep):
+        """Tests calling resume on the target succeeds.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_IsHalted.return_value = 1
+
+        def mock_JLINKARM_Go() -> int:
+            """Mock of calling JLINKARM_Go which sets the processor to running."""
+            self.dll.JLINKARM_IsHalted.return_value = 0
+            return 0
+
+        self.dll.JLINKARM_Go.side_effect = mock_JLINKARM_Go
+        self.assertEqual(True, self.jlink.resume())
+
+    @mock.patch("time.sleep")
+    def test_jlink_resume_succeeds_but_still_halted(self, mock_sleep):
+        """Tests calling resume on the target succeeds but the target is still halted.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_IsHalted.return_value = 1
+        self.dll.JLINKARM_Go.return_value = 0
+        self.assertEqual(False, self.jlink.resume())
+
+    @mock.patch("time.sleep")
+    def test_jlink_resume_on_fails(self, mock_sleep):
+        """Tests calling resume on the target fails.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_IsHalted.return_value = 1
+
+        def mock_JLINKARM_Go() -> int:
+            """Mock of calling JLINKARM_Go which sets the processor to running."""
+            self.dll.JLINKARM_IsHalted.return_value = 0
+            return 1
+
+        self.dll.JLINKARM_Go.side_effect = mock_JLINKARM_Go
+        self.assertEqual(False, self.jlink.resume())
+
+    @mock.patch("time.sleep")
+    def test_jlink_resume_core_not_halted(self, mock_sleep):
+        """Tests calling resume on the target when not halted.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.dll.JLINKARM_IsHalted.return_value = 0
+
+        with self.assertRaises(JLinkException):
+            self.jlink.resume()
+
     @mock.patch('time.sleep')
     def test_jlink_halt_failure(self, mock_sleep):
         """Tests J-Link ``halt()`` failure.

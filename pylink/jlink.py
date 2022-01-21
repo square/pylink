@@ -2315,6 +2315,28 @@ class JLink(object):
         return True
 
     @connection_required
+    def resume(self):
+        """Resumes execution on the CPU Core.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          ``True`` if resumed, ``False`` otherwise.
+
+        Raises:
+          JLinkException: if the device is not halted.
+        """
+        if not self.halted():
+            raise errors.JLinkException("The device was not halted when calling resume.")
+
+        res = int(self._dll.JLINKARM_Go())
+        if res == 0:
+            return not self.halted()
+
+        return False
+
+    @connection_required
     @decorators.async_decorator
     def halt(self):
         """Halts the CPU Core.
