@@ -1998,7 +1998,7 @@ class JLink(object):
         self._dll.JLINKARM_ClrRESET()
         return None
 
-    @connection_required
+    @open_required
     def set_tck_pin_high(self):
         """Sets the TCK pin to the high value (1).
 
@@ -2016,7 +2016,7 @@ class JLink(object):
             raise errors.JLinkException('Feature not supported.')
         return None
 
-    @connection_required
+    @open_required
     def set_tck_pin_low(self):
         """Sets the TCK pin to the low value (0).
 
@@ -2034,7 +2034,7 @@ class JLink(object):
             raise errors.JLinkException('Feature not supported.')
         return None
 
-    @connection_required
+    @open_required
     def set_tdi_pin_high(self):
         """Sets the test data input to logical ``1``.
 
@@ -2046,7 +2046,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_SetTDI()
 
-    @connection_required
+    @open_required
     def set_tdi_pin_low(self):
         """Clears the test data input.
 
@@ -2060,7 +2060,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_ClrTDI()
 
-    @connection_required
+    @open_required
     def set_tms_pin_high(self):
         """Sets the test mode select to logical ``1``.
 
@@ -2072,7 +2072,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_SetTMS()
 
-    @connection_required
+    @open_required
     def set_tms_pin_low(self):
         """Clears the test mode select.
 
@@ -2086,7 +2086,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_ClrTMS()
 
-    @connection_required
+    @open_required
     def set_trst_pin_high(self):
         """Sets the TRST pin to high (``1``).
 
@@ -2100,7 +2100,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_SetTRST()
 
-    @connection_required
+    @open_required
     def set_trst_pin_low(self):
         """Sets the TRST pin to low (``0``).
 
