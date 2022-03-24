@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.12.0]
+
+### Changed
+
+- @kylemanna: Fixed error where `argparse` would fail on Python3 when no
+  arguments were passed to the CLI.
+- @hkpeprah: Publish both `sdist` and `bdist_wheel`.
+- @mhummels: Switch pin functions from `connection_required() -> open_required()`
+  to support being called without connection to target.
+
 ## [0.11.1]
 
 ### Added
