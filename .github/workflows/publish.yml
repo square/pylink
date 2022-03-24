@@ -24,7 +24,7 @@ jobs:
           python setup.py test
       - name: Build Package
         run: |
-          python setup.py bdist_wheel
+          python setup.py bdist_wheel sdist
       - name: Publish Package
         uses: pypa/gh-action-pypi-publish@v1.4.2
         with:
