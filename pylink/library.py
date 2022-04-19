@@ -173,10 +173,10 @@ class Library(object):
             for fname in fnames:
                 fpath = os.path.join(directory_name, fname)
                 if util.is_os_64bit():
-                    if '_x86' not in fname:
+                    if '_x86' not in fname and '_arm' not in fname:
                         yield fpath
                 elif x86_found:
-                    if '_x86' in fname:
+                    if '_x86' in fname or '_arm' in fname:
                         yield fpath
                 else:
                     yield fpath
