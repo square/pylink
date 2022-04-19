@@ -176,7 +176,7 @@ class Library(object):
                     if '_x86' not in fname and '_arm' not in fname:
                         yield fpath
                 elif x86_found:
-                    if '_x86' in fname and '_arm' not in fname:
+                    if '_x86' in fname and '_arm' in fname:
                         yield fpath
                 else:
                     yield fpath
