@@ -1288,6 +1288,9 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_ExecCommand.return_value = 0
+        self.dll.JLINKARM_IsOpen.return_value = 1
+        self.dll.JLINKARM_EMU_IsConnected.return_value = 1
+        self.dll.JLINKARM_IsConnected.return_value = 0
         self.dll.JLINKARM_Connect.return_value = -1
         self.dll.JLINKARM_IsHalted.return_value = 0
         self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
@@ -1316,6 +1319,9 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_ExecCommand.return_value = 0
+        self.dll.JLINKARM_IsOpen.return_value = 1
+        self.dll.JLINKARM_EMU_IsConnected.return_value = 1
+        self.dll.JLINKARM_IsConnected.return_value = 1
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
         self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
@@ -1327,7 +1333,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(None, self.jlink.connect('device', speed='auto'))
 
         self.assertEqual(1, self.dll.JLINKARM_ExecCommand.call_count)
-        self.assertEqual(1, self.dll.JLINKARM_Connect.call_count)
+        self.assertEqual(0, self.dll.JLINKARM_Connect.call_count)
         self.assertEqual(1, self.dll.JLINKARM_IsHalted.call_count)
         self.assertEqual(1, self.dll.JLINKARM_DEVICE_GetIndex.call_count)
 
@@ -1343,6 +1349,9 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_ExecCommand.return_value = 0
+        self.dll.JLINKARM_IsOpen.return_value = 1
+        self.dll.JLINKARM_EMU_IsConnected.return_value = 1
+        self.dll.JLINKARM_IsConnected.side_effect = [0, 1]
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
         self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
@@ -1370,6 +1379,9 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_ExecCommand.return_value = 0
+        self.dll.JLINKARM_IsOpen.return_value = 1
+        self.dll.JLINKARM_EMU_IsConnected.return_value = 1
+        self.dll.JLINKARM_IsConnected.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
         self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
@@ -1398,6 +1410,9 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_ExecCommand.return_value = 0
+        self.dll.JLINKARM_IsOpen.return_value = 1
+        self.dll.JLINKARM_EMU_IsConnected.return_value = 1
+        self.dll.JLINKARM_IsConnected.side_effect = [0, 1]
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
         self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
@@ -1425,6 +1440,9 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_ExecCommand.return_value = 0
+        self.dll.JLINKARM_IsOpen.return_value = 1
+        self.dll.JLINKARM_EMU_IsConnected.return_value = 1
+        self.dll.JLINKARM_IsConnected.side_effect = [0, 1]
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
         self.dll.JLINKARM_DEVICE_GetIndex.return_value = 1
@@ -1452,6 +1470,9 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         self.dll.JLINKARM_ExecCommand.return_value = 0
+        self.dll.JLINKARM_IsOpen.return_value = 1
+        self.dll.JLINKARM_EMU_IsConnected.return_value = 1
+        self.dll.JLINKARM_IsConnected.return_value = 0
         self.dll.JLINKARM_Connect.return_value = 0
         self.dll.JLINKARM_IsHalted.return_value = 0
         self.dll.JLINKARM_DEVICE_GetIndex.return_value = -1
