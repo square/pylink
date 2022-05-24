@@ -1128,9 +1128,13 @@ class JLink(object):
         else:
             self.set_speed(speed)
 
-        result = self._dll.JLINKARM_Connect()
-        if result < 0:
-            raise errors.JLinkException(result)
+        # When we specify 'Device =', we will trigger an auto-connect to the
+        # target under debugging. If the 'exec_command' failed, then we want
+        # to force the connect here.
+        if not self.target_connected():
+            result = self._dll.JLINKARM_Connect()
+            if result < 0:
+                raise errors.JLinkException(result)
 
         try:
             # Issue a no-op command after connect. This has to be in a try-catch.
