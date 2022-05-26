@@ -475,7 +475,7 @@ class JLinkDllInfo:
             ('l_prev', ctypes.c_void_p),
         ]
 
-    def __init__(self, jlink_libname: str):
+    def __init__(self, jlink_libname):
         self._dll_path = None
 
         jlink_libfound = ctypes_util.find_library(jlink_libname)
@@ -519,7 +519,7 @@ class JLinkDllInfo:
         tmp_cdll_jlink = None
 
     @property
-    def path(self) -> str | None:
+    def path(self):
         """Answers the JLink library full path, or None if we failed to resolve
         the library by name.
         """
