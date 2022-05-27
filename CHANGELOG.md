@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.13.0]
+
+### Added
+- @hkpeprah: Added `tests` to `sdist` distribution.
+- @hkpeprah: Made `pylink-swv` available in package.
+
+### Changed
+
+- @hkpeprah: Fixed issue where device connect would happen twice as reported
+  by @chanqueo in ISSUE-113.
+- @hkpeprah: Renamed `swv -> pylink-swv`.
+
 ## [0.12.0]
 
 ### Changed
