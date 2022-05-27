@@ -86,6 +86,12 @@ class Library(object):
     # suffix like .so, .dylib or version number.
     JLINK_SDK_NAME = 'jlinkarm'
 
+    # Linux/MacOS: The library file name will start with 'libjlinkarm'
+    # Used by Library.find_library_{linux,darwin}()
+    JLINK_SDK_STARTS_WITH = 'libjlinkarm'
+
+    # Windows: these are suitable for both the ctypes find_library() API,
+    # and for the directory scanning done in Library.find_library_windows()
     WINDOWS_32_JLINK_SDK_NAME = 'JLinkARM'
     WINDOWS_64_JLINK_SDK_NAME = 'JLink_x64'
 
@@ -167,7 +173,7 @@ class Library(object):
           The paths to the J-Link library files in the order that they are
           found.
         """
-        dll = Library.JLINK_SDK_NAME
+        dll = Library.JLINK_SDK_STARTS_WITH
         root = os.path.join('/', 'opt', 'SEGGER')
 
         for (directory_name, subdirs, files) in os.walk(root):
@@ -216,7 +222,7 @@ class Library(object):
         Returns:
           The path to the J-Link library files in the order they are found.
         """
-        dll = Library.JLINK_SDK_NAME
+        dll = Library.JLINK_SDK_STARTS_WITH
         root = os.path.join('/', 'Applications', 'SEGGER')
         if not os.path.isdir(root):
             return
