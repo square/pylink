@@ -300,11 +300,19 @@ class Library(object):
           ``True`` if the DLL was loaded, otherwise ``False``.
         """
 
-        # Try to resolve the library by name, within the standard system search
-        # path, including LD_LIBRARY_PATH and suchlike.
-        if Library._dllinfo is None:
-            Library._dllinfo = JLinkDllInfo(self._sdk)
-        path = Library._dllinfo.path
+        # Ask the underlying operating system, through ctypes,
+        # to resolve the J-Link DLL "the standard way" by its
+        # library name.
+        #
+        path = ctypes_util.find_library(self._sdk)
+
+        if path is not None and sys.platform.startswith("linux"):
+            # On Linux, find_library() actually returns the soname,
+            # so we've got something like path = 'libjlinkarm.so.7',
+            # and we have to retrieve the absolute file path.
+            if Library._dllinfo is None:
+                Library._dllinfo = JLinkDllInfo(path)
+            path = Library._dllinfo.path
 
         if path is None:
             # Couldn't find it the standard way.  Fallback to the non-standard
@@ -448,16 +456,13 @@ class Library(object):
 
 
 class JLinkDllInfo:
-    """Helper used to find the absolute path of the JLink library (aka DLL).
+    """Helper used to retrieve the absolute path of the JLink library (aka DLL)
+    based on its so name.
 
-    The idea here is to rely on the underlying operating system, through ctypes,
-    for resolving the library file within its standard search path,
-    including LD_LIBRARY_PATH on Linux and DYLD_LIBRARY_PATH on MacOS:
-    - On Windows and MacOS, find_library() should already return the
-      full file path, so we'll just use that
-    - On Linux, find_library() should return the so name,
-      for e.g. libjlinkarm.so.7, and we'll have to additionaly use the native
-      dlinfo() API to retrieve the full file path
+    This is used on Linux, where ctypes.util.find_library() will not return
+    the library full file path, but only the file name (aka so name).
+    We'll then rely on the native dlinfo() API to retrieve the library absolute
+    file path.
 
     For e.g.:
     - LD_LIBRARY_PATH=/mnt/platform/segger/JLink
@@ -467,12 +472,17 @@ class JLinkDllInfo:
     https://github.com/cloudflightio/python-dlinfo.
     """
 
-    # dlinfo(3)
-    # request: Obtain a pointer to the link_map structure corresponding to handle.
+    # Request to obtain a pointer to the link_map structure corresponding
+    # to a given handle (Linux).
+    # See: man dlinfo(3)
     RTLD_DI_LINKMAP = 2
 
     # dlinfo(3): struct link_map, where ld_name will be the file path.
     class LinkMap(ctypes.Structure):
+        """
+        Represents a C struct link_map (Linux).
+        See: man dlinfo(3)
+        """
         _fields_ = [
             ('l_addr', ctypes.c_void_p),
             ('l_name', ctypes.c_char_p),
@@ -481,46 +491,44 @@ class JLinkDllInfo:
             ('l_prev', ctypes.c_void_p),
         ]
 
-    def __init__(self, jlink_libname):
+    def __init__(self, jlinkarm_soname):
+        """
+        Initialize the dlinfo struct for given soname.
+
+        The 'path' property will then hold the absolute path
+        of the corresponding shared library.
+
+        Args:
+        - jlinkarm_soname: The soname returned by find_library(),
+          for e.g. 'libjlinkarm.so.7'.
+        """
         self._dll_path = None
 
-        jlink_libfound = ctypes_util.find_library(jlink_libname)
-
-        if jlink_libfound is None:
-            # On all platforms, find_library() returns None when the dynamic
-            # linker has failed to resolve the given library name.
-            return
-
-        if not sys.platform.startswith("linux"):
-            # On MacOS and Windows, find_library() already returns the full path.
-            self._dll_path = jlink_libfound
-            return
-
-        # On Linux, find_library() returns a soname, for e.g. libjlinkarm.so.7,
-        # that LoadLibrary() should load just fine.
-        tmp_cdll_jlink = ctypes.cdll.LoadLibrary(jlink_libfound)
+        tmp_cdll_jlink = ctypes.cdll.LoadLibrary(jlinkarm_soname)
 
         # dlinfo() dance to retrieve the full library filepath.
         #
         dl_soname = ctypes_util.find_library('dl')
-        if dl_soname is None:
-            # Should not happen
-            return
-        tmp_cdll_dl = ctypes.cdll.LoadLibrary(dl_soname)
-        tmp_dlinfo = tmp_cdll_dl.dlinfo
-        tmp_dlinfo.argtypes = ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p
-        tmp_dlinfo.restype = ctypes.c_int
+        if dl_soname is not None:
+            tmp_cdll_dl = ctypes.cdll.LoadLibrary(dl_soname)
+            dlinfo = tmp_cdll_dl.dlinfo
+            dlinfo.argtypes = ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p
+            dlinfo.restype = ctypes.c_int
 
-        tmp_linkmap = ctypes.c_void_p()
-        if tmp_dlinfo(tmp_cdll_jlink._handle, self.RTLD_DI_LINKMAP, ctypes.byref(tmp_linkmap)) == 0:
-            tmp_linkmap = ctypes.cast(tmp_linkmap, ctypes.POINTER(JLinkDllInfo.LinkMap))
-            self._dll_path = tmp_linkmap.contents.l_name.decode(sys.getdefaultencoding())
+            linkmap = ctypes.c_void_p()
+            if dlinfo(tmp_cdll_jlink._handle, JLinkDllInfo.RTLD_DI_LINKMAP, ctypes.byref(linkmap)) == 0:
+                linkmap = ctypes.cast(linkmap, ctypes.POINTER(JLinkDllInfo.LinkMap))
+                self._dll_path = linkmap.contents.l_name.decode(sys.getdefaultencoding())
 
-        # According to comments in the Library.unload() function,
-        # on Linux we should NOT call FreeLibrary(),
-        # but just free the Python references for /immediate/ GC.
-        del tmp_cdll_dl
-        tmp_cdll_dl = None
+            # "Free" tmp dl library
+            del tmp_cdll_dl
+            tmp_cdll_dl = None
+
+        else:
+            # Sould not happen: find_library('dl') should not fail
+            pass
+
+        # "Free" tmp jlinkarm library
         del tmp_cdll_jlink
         tmp_cdll_jlink = None
 
