@@ -95,13 +95,15 @@ class Library(object):
     WINDOWS_32_JLINK_SDK_NAME = 'JLinkARM'
     WINDOWS_64_JLINK_SDK_NAME = 'JLink_x64'
 
+    # Linux: Represents the dlinfo(3) associated to the jlinkarm shared library.
+    #
     # Poor man's singleton: having this as a class member avoids to create
-    # a new JLinkDllInfo() for each pylink.Library instance.
+    # a new JLinkarmDlInfo() for each pylink.Library instance.
     #
     # For e.g., the simple 'pyocd list' command creates three instances
     # of the pylink.Library class, and it's worth not repeating the dlinfo()
     # dance three times.
-    _dllinfo = None
+    _dlinfo = None
 
     @classmethod
     def get_appropriate_windows_sdk_name(cls):
@@ -300,19 +302,18 @@ class Library(object):
           ``True`` if the DLL was loaded, otherwise ``False``.
         """
 
-        # Ask the underlying operating system, through ctypes,
+        # Request the underlying operating system, through ctypes,
         # to resolve the J-Link DLL "the standard way" by its
         # library name.
-        #
         path = ctypes_util.find_library(self._sdk)
 
         if path is not None and sys.platform.startswith("linux"):
             # On Linux, find_library() actually returns the soname,
             # so we've got something like path = 'libjlinkarm.so.7',
             # and we have to retrieve the absolute file path.
-            if Library._dllinfo is None:
-                Library._dllinfo = JLinkDllInfo(path)
-            path = Library._dllinfo.path
+            if Library._dlinfo is None:
+                Library._dlinfo = JLinkarmDlInfo(path)
+            path = Library._dlinfo.path
 
         if path is None:
             # Couldn't find it the standard way.  Fallback to the non-standard
@@ -455,9 +456,9 @@ class Library(object):
         return self._lib
 
 
-class JLinkDllInfo:
+class JLinkarmDlInfo:
     """Helper used to retrieve the absolute path of the JLink library (aka DLL)
-    based on its so name.
+    based on its so name (Linux).
 
     This is used on Linux, where ctypes.util.find_library() will not return
     the library full file path, but only the file name (aka so name).
@@ -467,6 +468,9 @@ class JLinkDllInfo:
     For e.g.:
     - LD_LIBRARY_PATH=/mnt/platform/segger/JLink
     - JLinkarmDllInfo('jlinkarm').path -> /mnt/platform/segger/JLink/libjlinkarm.so.7
+
+    Technically this is a wrapper to the `struct dlinfo` data answered
+    by the (Linux) dynamic linker.
 
     The dlinfo() dance implementation is adapted from @cloudflightio,
     https://github.com/cloudflightio/python-dlinfo.
@@ -516,8 +520,8 @@ class JLinkDllInfo:
             dlinfo.restype = ctypes.c_int
 
             linkmap = ctypes.c_void_p()
-            if dlinfo(tmp_cdll_jlink._handle, JLinkDllInfo.RTLD_DI_LINKMAP, ctypes.byref(linkmap)) == 0:
-                linkmap = ctypes.cast(linkmap, ctypes.POINTER(JLinkDllInfo.LinkMap))
+            if dlinfo(tmp_cdll_jlink._handle, JLinkarmDlInfo.RTLD_DI_LINKMAP, ctypes.byref(linkmap)) == 0:
+                linkmap = ctypes.cast(linkmap, ctypes.POINTER(JLinkarmDlInfo.LinkMap))
                 self._dll_path = linkmap.contents.l_name.decode(sys.getdefaultencoding())
 
             # "Free" tmp dl library
