@@ -307,7 +307,7 @@ class Library(object):
         # library name.
         path = ctypes_util.find_library(self._sdk)
 
-        if path is not None and sys.platform.startswith("linux"):
+        if (path is not None) and sys.platform.startswith('linux'):
             # On Linux, find_library() actually returns the soname,
             # so we've got something like path = 'libjlinkarm.so.7',
             # and we have to retrieve the absolute file path.
