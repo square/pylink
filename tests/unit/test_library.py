@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from platform import platform
 import pylink.library as library
 import pylink.util as util
 
@@ -949,6 +950,92 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(0, mock_load_library.call_count)
 
+    @mock.patch('os.name', new='posix')
+    @mock.patch('sys.platform', new='linux')
+    @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
+    @mock.patch('os.remove', new=mock.Mock())
+    @mock.patch('pylink.library.open')
+    @mock.patch('pylink.library.os')
+    @mock.patch('pylink.util.is_os_64bit', return_value=True)
+    @mock.patch('pylink.platform.libc_ver', return_value = ('libc', '1.0'))
+    @mock.patch('ctypes.util.find_library', return_value='libjlinkarm.so.7')
+    @mock.patch('pylink.library.JLinkarmDlInfo.__init__')
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    def test_linux_glibc_unavailable(self, mock_load_library, mock_dlinfo_ctr, mock_find_library,
+                                     mock_libc_ver, mock_is_os_64bit, mock_os,  mock_open):
+        """Confirms the whole JLinkarmDlInfo code path is not involved when GNU libc
+        extensions are unavailable on a Linux system, and that we'll successfully fallback
+        to the "search by file name".
+
+        Test case:
+        - initial find_library('jlinkarm') succeeds
+        - but the host system does not provide GNU libc extensions
+        - we should then skip the dlinfo() dance and proceed
+          to the "search by file name" code path, aka find_library_linux()
+        - and "successfully load" a mock library file from /opt/SEGGER/JLink
+        """
+        directories = [
+            # Library.find_library_linux() should find this.
+            '/opt/SEGGER/JLink/libjlinkarm.so.6'
+        ]
+        self.mock_directories(mock_os, directories, '/')
+
+        lib = library.Library()
+        lib.unload = mock.Mock()
+
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        # JLinkarmDlInfo has not been instantiated.
+        self.assertEquals(0, mock_dlinfo_ctr.call_count)
+        # Fallback to "search by file name" has succeeded.
+        self.assertEquals(1, mock_load_library.call_count)
+        self.assertEqual(directories[0], lib._path)
+
+    @mock.patch('os.name', new='posix')
+    @mock.patch('sys.platform', new='linux')
+    @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
+    @mock.patch('os.remove', new=mock.Mock())
+    @mock.patch('pylink.library.open')
+    @mock.patch('pylink.library.os')
+    @mock.patch('pylink.util.is_os_64bit', return_value=True)
+    @mock.patch('pylink.platform.libc_ver', return_value = ('glibc', '2.34'))
+    @mock.patch('ctypes.util.find_library')
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    def test_linux_dl_unavailable(self, mock_load_library, mock_find_library, mock_libc_ver,
+                                  mock_is_os_64bit, mock_os,  mock_open):
+        """Confirms we successfully fallback to the "search by file name" code path when libdl is
+        unavailable despite the host system presenting itself as POSIX (GNU/Linux).
+
+        Test case:
+        - initial find_library('jlinkarm') succeeds
+        - the host system presents itself as GNU/Linux, but does not provide libdl
+        - we should then skip the dlinfo() dance and proceed
+          to the "search by file name" code path, aka find_library_linux()
+        - and "successfully load" a mock library file from /opt/SEGGER/JLink
+        """
+        mock_find_library.side_effect = [
+            # find_library('jlinkarm')
+            'libjlinkarm.so.6',
+            # find_library('dl')
+            None
+        ]
+
+        directories = [
+            '/opt/SEGGER/JLink/libjlinkarm.so.6'
+        ]
+        self.mock_directories(mock_os, directories, '/')
+
+        lib = library.Library()
+        lib.unload = mock.Mock()
+
+        mock_find_library.assert_any_call(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_any_call('dl')
+        self.assertEquals(2, mock_find_library.call_count)
+        # Called once in JLinkarmDlInfo and once in Library.
+        self.assertEquals(2, mock_load_library.call_count)
+        # The dlinfo() dance silently failed, but will answer None resolved path.
+        self.assertIsNone(library.Library._dlinfo.path)
+        # Fallback to "search by file name" has succeeded.
+        self.assertEqual(directories[0], lib._path)
 
 if __name__ == '__main__':
     unittest.main()
