@@ -465,20 +465,21 @@ class Library(object):
 
 
 class JLinkarmDlInfo:
-    """Helper used to retrieve the absolute path of the JLink library (aka DLL)
-    based on its so name (Linux).
+    """Helper to retrieve the absolute path of the JLink library (aka DLL)
+    based on its soname.
 
     This is used on Linux, where ctypes.util.find_library() will not return
-    the library full file path, but only the file name (aka so name).
+    the library full file path, but only the file name (aka soname).
     We'll then rely on the native dlinfo() API to retrieve the library absolute
     file path.
 
     For e.g.:
     - LD_LIBRARY_PATH=/mnt/platform/segger/JLink
-    - JLinkarmDllInfo('jlinkarm').path -> /mnt/platform/segger/JLink/libjlinkarm.so.7
+    - ctypes.util.find_library('jlinkarm') -> libjlinkarm.so.7
+    - JLinkarmDlInfo('libjlinkarm.so.7').path -> /mnt/platform/segger/JLink/libjlinkarm.so.7
 
-    Technically this is a wrapper to the `struct dlinfo` data answered
-    by the (Linux) dynamic linker.
+    Note that unlike dlopen(), dlsym() and friends, dlinfo() is not a POSIX API,
+    but a GNU extension, available only on systems with the GNU libc implementation (glibc).
 
     The dlinfo() dance implementation is adapted from @cloudflightio,
     https://github.com/cloudflightio/python-dlinfo.
@@ -489,7 +490,7 @@ class JLinkarmDlInfo:
     # See: man dlinfo(3)
     RTLD_DI_LINKMAP = 2
 
-    # dlinfo(3): struct link_map, where ld_name will be the file path.
+    # dlinfo(3): struct link_map, where l_name will be the file path.
     class LinkMap(ctypes.Structure):
         """
         Represents a C struct link_map (Linux).
@@ -504,22 +505,43 @@ class JLinkarmDlInfo:
         ]
 
     def __init__(self, jlinkarm_soname):
-        """
-        Initialize the dlinfo struct for given soname.
+        """Retrieves the absolute file path of the JLink library (aka DLL)
+        corresponding to the given soname.
 
-        The 'path' property will then hold the absolute path
-        of the corresponding shared library.
+        This runs the dlinfo() dance using the ctypes API:
+        - loads the JLink DLL shared object for given soname
+        - loads the dl library and lookup the dlinfo symbol
+        - calls dlinfo() with request RTLD_DI_LINKMAP to get the struct link_map
+          for the JLink library
+        - access the struct content to retrieve the library's absolute path
+
+        The dlinfo() dance implementation does not try to hide any OSError
+        the ctypes API may raise, since this would likely hide a host
+        system configuration issue (aka "should not happen").
 
         Args:
-        - jlinkarm_soname: The soname returned by find_library(),
+        - jlinkarm_soname: The JLink DLL soname returned by find_library(),
           for e.g. 'libjlinkarm.so.7'.
+
+        Raises:
+          - OSError when the actual library file has been removed, is not readable,
+            is not a loadable shared object, etc.
         """
+        # JLink DLL's absolute file path.
         self._dll_path = None
 
+        # We're using the soname returned by a successful call to find_library(),
+        # hence we can expect LoadLibrary() to in turn successfully load the JLink DLL.
         tmp_cdll_jlink = ctypes.cdll.LoadLibrary(jlinkarm_soname)
 
-        # dlinfo() dance to retrieve the full library filepath.
+        # dlinfo() dance to retrieve the library's absolute file path.
         #
+        # This code path should be involved only for POSIX systems
+        # with GNU libc, where:
+        # - libdl is available (POSIX)
+        # - dlinfo() is defined (glibc)
+        #
+        # Hence bellow calls to find_library(), LoadLibrary(), and dlinfo() should succeed.
         dl_soname = ctypes_util.find_library('dl')
         if dl_soname is not None:
             tmp_cdll_dl = ctypes.cdll.LoadLibrary(dl_soname)
@@ -537,7 +559,7 @@ class JLinkarmDlInfo:
             tmp_cdll_dl = None
 
         else:
-            # Sould not happen: find_library('dl') should not fail
+            # Should not happen.
             pass
 
         # "Free" tmp jlinkarm library
@@ -546,7 +568,10 @@ class JLinkarmDlInfo:
 
     @property
     def path(self):
-        """Answers the JLink library full path, or None if we failed to resolve
-        the library by name.
+        """Answers the JLink DLL file path.
+
+        Returns the JLink DLL's absolute path,
+        or None when the dl library is unavailable despite the system
+        presenting itself as POSIX.
         """
         return self._dll_path
