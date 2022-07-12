@@ -17,6 +17,7 @@ from . import util
 import ctypes
 import ctypes.util as ctypes_util
 import os
+import platform
 import sys
 import tempfile
 
@@ -307,13 +308,20 @@ class Library(object):
         # library name.
         path = ctypes_util.find_library(self._sdk)
 
+        # On Linux, find_library() actually returns the soname,
+        # so we've got something like path = 'libjlinkarm.so.7',
+        # and now have to retrieve the absolute file path.
         if (path is not None) and sys.platform.startswith('linux'):
-            # On Linux, find_library() actually returns the soname,
-            # so we've got something like path = 'libjlinkarm.so.7',
-            # and we have to retrieve the absolute file path.
-            if Library._dlinfo is None:
-                Library._dlinfo = JLinkarmDlInfo(path)
-            path = Library._dlinfo.path
+            # For this, we'll rely on dlinfo(), which is not a POSIX API,
+            # but a GNU libc extension.
+            if platform.libc_ver()[0] == 'glibc':
+                if Library._dlinfo is None:
+                    Library._dlinfo = JLinkarmDlInfo(path)
+                path = Library._dlinfo.path
+            else:
+                # When GNU libc extensions aren't available,
+                # continue as if find_library() had failed.
+                path = None
 
         if path is None:
             # Couldn't find it the standard way.  Fallback to the non-standard
