@@ -1037,5 +1037,41 @@ class TestLibrary(unittest.TestCase):
         # Fallback to "search by file name" has succeeded.
         self.assertEqual(directories[0], lib._path)
 
+    @mock.patch('os.name', new='posix')
+    @mock.patch('sys.platform', new='linux')
+    @mock.patch('pylink.platform.libc_ver', return_value = ('glibc', '2.34'))
+    @mock.patch('ctypes.util.find_library')
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    def test_linux_dl_oserror(self, mock_load_library, mock_find_library, mock_libc_ver):
+        """Confirms ctype API exceptions actually propagate from JLinkarmDlInfo to call site.
+
+        Test case:
+        - initial find_library('jlinkarm') succeeds
+        - the host system presents itself as GNU/Linux, and we successfully load libdl
+        - but loading libdl raises OSError
+        """
+
+        mock_find_library.side_effect = [
+            # find_library('jlinkarm')
+            'libjlinkarm.so.6',
+            # find_library('dl')
+            'libdl.so.2'
+        ]
+        mock_load_library.side_effect = [
+            # load JLink DLL
+            mock.Mock(),
+            # load libdl
+            OSError()
+        ]
+
+        with self.assertRaises(OSError):
+            lib = library.Library()
+            lib.unload = mock.Mock()
+
+        mock_find_library.assert_any_call(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_any_call('dl')
+        self.assertEquals(2, mock_find_library.call_count)
+        self.assertEquals(2, mock_load_library.call_count)
+
 if __name__ == '__main__':
     unittest.main()
