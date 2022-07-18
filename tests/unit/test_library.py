@@ -957,7 +957,7 @@ class TestLibrary(unittest.TestCase):
     @mock.patch('pylink.library.open')
     @mock.patch('pylink.library.os')
     @mock.patch('pylink.util.is_os_64bit', return_value=True)
-    @mock.patch('pylink.platform.libc_ver', return_value = ('libc', '1.0'))
+    @mock.patch('pylink.platform.libc_ver', return_value=('libc', '1.0'))
     @mock.patch('ctypes.util.find_library', return_value='libjlinkarm.so.7')
     @mock.patch('pylink.library.JLinkarmDlInfo.__init__')
     @mock.patch('ctypes.cdll.LoadLibrary')
@@ -997,7 +997,7 @@ class TestLibrary(unittest.TestCase):
     @mock.patch('pylink.library.open')
     @mock.patch('pylink.library.os')
     @mock.patch('pylink.util.is_os_64bit', return_value=True)
-    @mock.patch('pylink.platform.libc_ver', return_value = ('glibc', '2.34'))
+    @mock.patch('pylink.platform.libc_ver', return_value=('glibc', '2.34'))
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     def test_linux_dl_unavailable(self, mock_load_library, mock_find_library, mock_libc_ver,
@@ -1039,7 +1039,7 @@ class TestLibrary(unittest.TestCase):
 
     @mock.patch('os.name', new='posix')
     @mock.patch('sys.platform', new='linux')
-    @mock.patch('pylink.platform.libc_ver', return_value = ('glibc', '2.34'))
+    @mock.patch('pylink.platform.libc_ver', return_value=('glibc', '2.34'))
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
     def test_linux_dl_oserror(self, mock_load_library, mock_find_library, mock_libc_ver):
@@ -1072,6 +1072,7 @@ class TestLibrary(unittest.TestCase):
         mock_find_library.assert_any_call('dl')
         self.assertEquals(2, mock_find_library.call_count)
         self.assertEquals(2, mock_load_library.call_count)
+
 
 if __name__ == '__main__':
     unittest.main()
