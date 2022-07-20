@@ -14,3 +14,4 @@ In the order of appearance in the commit history:
 | Volker Kettenbach         | @kettenbach-it     |
 | Jacob Siverskog           | @jsiverskog        |
 | Johannes Neyer            | @johannesneyer     |
+| Chris Duf                 | @dottspina         |

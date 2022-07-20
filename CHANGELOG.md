@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.14.0]
+
+### Changed
+- @dottspina: Changed behaviour of `load_library()` on Linux-based platforms to
+  resolve sonames; fixes an issue where `find_library()` would fail, and the
+  underlying platform-specific methods would not return the path to the soname
+  file.
+
 ## [0.13.0]
 
 ### Added
