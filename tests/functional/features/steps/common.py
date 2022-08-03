@@ -333,7 +333,7 @@ def step_process_jlink_connected(context):
     process.start()
     process.join()
 
-    assert(all(queue.get() for _ in range(2)))
+    assert all(queue.get() for _ in range(2))
 
 
 @behave.then('I should not be able to open a new connection to it')
