@@ -83,16 +83,15 @@ class Library(object):
         'JLINK_SetFlashProgProgressCallback'
     ]
 
+    # On Linux and macOS, represents the library file name prefix
+    # (the part just before .so or .dylib).
+    #
+    # This is the value appropriate when calling the find_library_{linux,darwin}()
+    # functions below.
+    #
+    # Note: this "constant" is also used by downstream projects,
+    # and should therefore be considered public (frozen) API.
     JLINK_SDK_NAME = 'libjlinkarm'
-    """On Linux and macOS, represents the library file name prefix
-    (the part just before .so or .dylib).
-
-    This is the value appropriate when calling the find_library_{linux,darwin}()
-    functions bellow.
-
-    Note: this "constant" is also used by downstream projects,
-    and should therefore be considered public (frozen) API.
-    """
 
     # Linux/MacOS: The JLink shared object name, without any prefix like lib,
     # suffix like .so, .dylib or version number.
