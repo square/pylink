@@ -83,13 +83,21 @@ class Library(object):
         'JLINK_SetFlashProgProgressCallback'
     ]
 
-    # Linux/MacOS: The JLink library name without any prefix like lib,
-    # suffix like .so, .dylib or version number.
-    JLINK_SDK_NAME = 'jlinkarm'
+    # On Linux and macOS, represents the library file name prefix
+    # (the part just before .so or .dylib).
+    #
+    # This is the value appropriate when calling the find_library_{linux,darwin}()
+    # functions below.
+    #
+    # Note: this "constant" is also used by downstream projects,
+    # and should therefore be considered public (frozen) API.
+    JLINK_SDK_NAME = 'libjlinkarm'
 
-    # Linux/MacOS: The library file name will start with 'libjlinkarm'
-    # Used by Library.find_library_{linux,darwin}()
-    JLINK_SDK_STARTS_WITH = 'libjlinkarm'
+    # Linux/MacOS: The JLink shared object name, without any prefix like lib,
+    # suffix like .so, .dylib or version number.
+    #
+    # This is the value appropriate when invoking the ctypes API find_libary().
+    JLINK_SDK_OBJECT = 'jlinkarm'
 
     # Windows: these are suitable for both the ctypes find_library() API,
     # and for the directory scanning done in Library.find_library_windows()
@@ -176,7 +184,7 @@ class Library(object):
           The paths to the J-Link library files in the order that they are
           found.
         """
-        dll = Library.JLINK_SDK_STARTS_WITH
+        dll = Library.JLINK_SDK_NAME
         root = os.path.join('/', 'opt', 'SEGGER')
 
         for (directory_name, subdirs, files) in os.walk(root):
@@ -225,7 +233,7 @@ class Library(object):
         Returns:
           The path to the J-Link library files in the order they are found.
         """
-        dll = Library.JLINK_SDK_STARTS_WITH
+        dll = Library.JLINK_SDK_NAME
         root = os.path.join('/', 'Applications', 'SEGGER')
         if not os.path.isdir(root):
             return
@@ -272,7 +280,7 @@ class Library(object):
         if self._windows or self._cygwin:
             self._sdk = self.get_appropriate_windows_sdk_name()
         else:
-            self._sdk = self.JLINK_SDK_NAME
+            self._sdk = self.JLINK_SDK_OBJECT
 
         if dllpath is not None:
             self.load(dllpath)

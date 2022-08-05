@@ -151,7 +151,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         mock_open.assert_called_with(self.lib_path, 'rb')
         mock_load_library.assert_called_once()
 
@@ -182,7 +182,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(0, mock_load_library.call_count)
 
@@ -317,7 +317,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
 
         mock_open.assert_called_with(self.lib_path, 'rb')
@@ -431,7 +431,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
 
         mock_open.assert_called_with(self.lib_path, 'rb')
@@ -469,7 +469,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_load_library.call_count)
 
@@ -504,7 +504,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_load_library.call_count)
 
@@ -538,7 +538,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(1, mock_load_library.call_count)
 
@@ -572,7 +572,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(0, mock_load_library.call_count)
 
@@ -946,7 +946,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         self.assertEqual(1, mock_find_library.call_count)
         self.assertEqual(0, mock_load_library.call_count)
 
@@ -983,7 +983,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         # JLinkarmDlInfo has not been instantiated.
         self.assertEquals(0, mock_dlinfo_ctr.call_count)
         # Fallback to "search by file name" has succeeded.
@@ -1027,7 +1027,7 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
 
-        mock_find_library.assert_any_call(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_any_call(library.Library.JLINK_SDK_OBJECT)
         mock_find_library.assert_any_call('dl')
         self.assertEquals(2, mock_find_library.call_count)
         # Called once in JLinkarmDlInfo and once in Library.
@@ -1068,7 +1068,7 @@ class TestLibrary(unittest.TestCase):
             lib = library.Library()
             lib.unload = mock.Mock()
 
-        mock_find_library.assert_any_call(library.Library.JLINK_SDK_NAME)
+        mock_find_library.assert_any_call(library.Library.JLINK_SDK_OBJECT)
         mock_find_library.assert_any_call('dl')
         self.assertEquals(2, mock_find_library.call_count)
         self.assertEquals(2, mock_load_library.call_count)
