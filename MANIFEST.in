@@ -1,5 +1,5 @@
 include CHANGELOG.md
 include LICENSE.md
 include README.md
-recursive-include tests
-recursive-exclude *.pyc *.o *.bin *.elf
+recursive-include tests *.py *.feature Makefile .gdbinit *.md *.s *.ld *.c *.h
+global-exclude *.pyc *.o *.bin *.elf
