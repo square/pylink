@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [0.14.3]
 
 ### Changed
-- @ford: Add `tests` to source distribution.
+- @hkpeprah: Add `tests` to source distribution.
 
 ## [0.14.2]
 
