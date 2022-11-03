@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import psutil
+from . import util
 
 import errno
 import tempfile
@@ -103,7 +103,7 @@ class JLock(object):
 
                 # In the case that the lockfile exists, but the pid does not
                 # correspond to a valid process, remove the file.
-                if not psutil.pid_exists(pid):
+                if not util.pid_exists(pid):
                     os.remove(self.path)
 
             except ValueError as e:
