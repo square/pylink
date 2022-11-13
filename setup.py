@@ -263,11 +263,6 @@ setuptools.setup(
     # Tests
     test_suite='tests',
 
-    # Test requirements
-    tests_require=[
-        'mock == 2.0.0'
-    ],
-
     # Additional scripts.
     scripts=[
         os.path.join('examples', 'pylink-rtt'),
