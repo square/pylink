@@ -14,7 +14,7 @@
 
 import pylink.decorators as decorators
 
-import mock
+from unittest import mock
 
 import threading
 import unittest

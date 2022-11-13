@@ -14,7 +14,7 @@
 
 import pylink.jlock as jlock
 
-import mock
+from unittest import mock
 
 import errno
 import os

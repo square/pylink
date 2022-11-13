@@ -16,7 +16,7 @@ from platform import platform
 import pylink.library as library
 import pylink.util as util
 
-import mock
+from unittest import mock
 
 import unittest
 

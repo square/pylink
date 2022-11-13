@@ -16,7 +16,7 @@ import pylink.enums as enums
 import pylink.protocols.swd as swd
 import pylink.unlockers as unlock
 
-import mock
+from unittest import mock
 
 import unittest
 

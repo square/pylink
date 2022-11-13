@@ -15,7 +15,7 @@
 import pylink.enums as enums
 import pylink.util as util
 
-import mock
+from unittest import mock
 
 try:
     import StringIO

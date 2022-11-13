@@ -20,7 +20,7 @@ import pylink.structs as structs
 import pylink.unlockers.unlock_kinetis as unlock_kinetis
 import pylink.util as util
 
-import mock
+from unittest import mock
 
 try:
     import StringIO

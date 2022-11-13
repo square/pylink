@@ -16,7 +16,7 @@ import pylink
 import pylink.__main__ as main
 
 import logging
-import mock
+from unittest import mock
 
 try:
     import StringIO

@@ -15,7 +15,7 @@
 import pylink.protocols.swd as swd
 import pylink.util
 
-import mock
+from unittest import mock
 
 import unittest
 
