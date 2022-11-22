@@ -21,6 +21,11 @@ try:
 except ImportError:
     sys.modules['psutil'] = {}
 
+try:
+    import six
+except ImportError:
+    sys.modules['six'] = {}
+
 import pylink
 
 import os
