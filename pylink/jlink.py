@@ -2192,9 +2192,18 @@ class JLink(object):
         except errors.JLinkException:
             pass
 
-        res = self.flash_write(addr, data, flags=flags)
+        # Perform read-modify-write operation.
+        res = self._dll.JLINKARM_BeginDownload(flags=flags)
+        if res < 0:
+          raise errors.JLinkEraseException(res)
 
-        return res
+        bytes_flashed = self._dll.JLINKARM_WriteMem(addr, len(data), data)
+
+        res = self._dll.JLINKARM_EndDownload()
+        if res < 0:
+            raise errors.JLinkEraseException(res)
+
+        return bytes_flashed
 
     @connection_required
     def flash_file(self, path, addr, on_progress=None, power_on=False):

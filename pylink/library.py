@@ -80,7 +80,10 @@ class Library(object):
         'JLINK_SWD_StoreRaw',
         'JLINK_SWD_SyncBits',
         'JLINK_SWD_SyncBytes',
-        'JLINK_SetFlashProgProgressCallback'
+        'JLINK_SetFlashProgProgressCallback',
+        'JLINKARM_BeginDownload',
+        'JLINKARM_EndDownload',
+        'JLINKARM_WriteMem'
     ]
 
     # On Linux and macOS, represents the library file name prefix
