@@ -2195,7 +2195,7 @@ class JLink(object):
         # Perform read-modify-write operation.
         res = self._dll.JLINKARM_BeginDownload(flags=flags)
         if res < 0:
-          raise errors.JLinkEraseException(res)
+            raise errors.JLinkEraseException(res)
 
         bytes_flashed = self._dll.JLINKARM_WriteMem(addr, len(data), data)
 
