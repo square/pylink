@@ -2157,7 +2157,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          data (list): list of bytes to write to flash
+          data (list|bytes): list or byte object of bytes to write to flash
           addr (int): start address on flash which to write the data
           on_progress (function): callback to be triggered on flash progress
           power_on (boolean): whether to power the target before flashing
@@ -2196,6 +2196,9 @@ class JLink(object):
         res = self._dll.JLINKARM_BeginDownload(flags=flags)
         if res < 0:
             raise errors.JLinkEraseException(res)
+
+        if isinstance(data, list):
+            data = bytes(data)
 
         bytes_flashed = self._dll.JLINKARM_WriteMem(addr, len(data), data)
 
