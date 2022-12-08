@@ -15,3 +15,5 @@ In the order of appearance in the commit history:
 | Jacob Siverskog           | @jsiverskog        |
 | Johannes Neyer            | @johannesneyer     |
 | Chris Duf                 | @dottspina         |
+| Bora Özgen                | @boraozgen         |
+| Marco Nilsson             | @denravonska       |

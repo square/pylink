@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.0.0]
+
+### Changed
+- @boraozgen: Fixed installation error that prevented `setup.py install` when
+  `six` was not installed.
+- @denravonska: Changed `.flash()` to no longer erase chip on flash; users will
+  now need to ensure they call `.erase()` prior to flashing a non-erased region
+  of flash.
+
 ## [0.14.3]
 
 ### Changed
