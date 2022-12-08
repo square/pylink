@@ -2157,7 +2157,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          data (list): list of bytes to write to flash
+          data (list|bytes): list or byte object of bytes to write to flash
           addr (int): start address on flash which to write the data
           on_progress (function): callback to be triggered on flash progress
           power_on (boolean): whether to power the target before flashing
@@ -2192,9 +2192,21 @@ class JLink(object):
         except errors.JLinkException:
             pass
 
-        res = self.flash_write(addr, data, flags=flags)
+        # Perform read-modify-write operation.
+        res = self._dll.JLINKARM_BeginDownload(flags=flags)
+        if res < 0:
+            raise errors.JLinkEraseException(res)
 
-        return res
+        if isinstance(data, list):
+            data = bytes(data)
+
+        bytes_flashed = self._dll.JLINKARM_WriteMem(addr, len(data), data)
+
+        res = self._dll.JLINKARM_EndDownload()
+        if res < 0:
+            raise errors.JLinkEraseException(res)
+
+        return bytes_flashed
 
     @connection_required
     def flash_file(self, path, addr, on_progress=None, power_on=False):
