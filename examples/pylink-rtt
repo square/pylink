@@ -148,10 +148,12 @@ def main(target_device, block_address=None):
         while jlink.connected():
             time.sleep(1)
         print("JLink disconnected, exiting...")
+    except EOFError:
+        print("EOFError detected, exiting...")
     except KeyboardInterrupt:
         print("ctrl-c detected, exiting...")
-        pass
 
+    jlink.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Open RTT console.")
@@ -160,7 +162,7 @@ if __name__ == "__main__":
         help="Device Name (see https://www.segger.com/supported-devices/jlink/)")
     parser.add_argument(
         "rtt_block_address", help="RTT block address in hex",
-        type=lambda x: int(x, 16), nargs="?")
+        type=lambda x: int(x, 16), nargs="?", default=None)
 
     args = parser.parse_args()
 
