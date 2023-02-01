@@ -1961,7 +1961,7 @@ class JLink(object):
         """
         return self.set_trace_source(enums.JLinkTraceSource.ETM)
 
-    @connection_required
+    @open_required
     def set_reset_strategy(self, strategy):
         """Sets the reset strategy for the target.
 
