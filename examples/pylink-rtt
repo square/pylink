@@ -86,6 +86,8 @@ def write_rtt(jlink):
         while jlink.connected():
             bytes = list(bytearray(input(), "utf-8") + b"\x0A\x00")
             bytes_written = jlink.rtt_write(0, bytes)
+    except EOFError:
+        print("EOFError detected, exiting...")
     except Exception:
         print("IO write thread exception, exiting...")
         thread.interrupt_main()
@@ -148,8 +150,6 @@ def main(target_device, block_address=None):
         while jlink.connected():
             time.sleep(1)
         print("JLink disconnected, exiting...")
-    except EOFError:
-        print("EOFError detected, exiting...")
     except KeyboardInterrupt:
         print("ctrl-c detected, exiting...")
 
