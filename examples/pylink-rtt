@@ -28,7 +28,7 @@ import pylink
 import argparse
 import sys
 import time
-from builtins import input
+from six.moves import input
 
 try:
     import thread
