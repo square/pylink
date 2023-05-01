@@ -260,7 +260,7 @@ class Library(object):
                     if f.startswith(dll):
                         yield os.path.join(dir_path, f)
 
-    def __init__(self, dllpath=None):
+    def __init__(self, dllpath=None, use_tmpcpy=True):
         """Initializes an instance of a ``Library``.
 
         Loads the default J-Link DLL if ``dllpath`` is ``None``, otherwise
@@ -269,6 +269,7 @@ class Library(object):
         Args:
           self (Library): the ``Library`` instance
           dllpath (str): the DLL to load into the library
+          use_tmpcpy (bool): True to load a temporary copy of J-Link DLL
 
         Returns:
           ``None``
@@ -278,6 +279,7 @@ class Library(object):
         self._path = None
         self._windows = sys.platform.startswith('win')
         self._cygwin = sys.platform.startswith('cygwin')
+        self._use_tmpcpy = use_tmpcpy
         self._temp = None
 
         if self._windows or self._cygwin:
@@ -387,20 +389,25 @@ class Library(object):
         else:
             suffix = '.so'
 
-        # Copy the J-Link DLL to a temporary file.  This will be cleaned up the
-        # next time we load a DLL using this library or if this library is
-        # cleaned up.
-        tf = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        with open(tf.name, 'wb') as outputfile:
-            with open(self._path, 'rb') as inputfile:
-                outputfile.write(inputfile.read())
+        lib_path = self._path
 
-        # This is needed to work around a WindowsError where the file is not
-        # being properly cleaned up after exiting the with statement.
-        tf.close()
+        if self._use_tmpcpy:
+            # Copy the J-Link DLL to a temporary file.  This will be cleaned up the
+            # next time we load a DLL using this library or if this library is
+            # cleaned up.
+            tf = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            with open(tf.name, 'wb') as outputfile:
+                with open(self._path, 'rb') as inputfile:
+                    outputfile.write(inputfile.read())
 
-        self._temp = tf
-        self._lib = ctypes.cdll.LoadLibrary(tf.name)
+            # This is needed to work around a WindowsError where the file is not
+            # being properly cleaned up after exiting the with statement.
+            tf.close()
+
+            lib_path = tf.name
+            self._temp = tf
+
+        self._lib = ctypes.cdll.LoadLibrary(lib_path)
 
         if self._windows:
             # The J-Link library uses a mix of __cdecl and __stdcall function
@@ -408,7 +415,7 @@ class Library(object):
             # causes issues with Windows, where it expects the __stdcall
             # methods to follow the standard calling convention.  As a result,
             # we have to convert them to windows function calls.
-            self._winlib = ctypes.windll.LoadLibrary(tf.name)
+            self._winlib = ctypes.windll.LoadLibrary(lib_path)
             for stdcall in self._standard_calls_:
                 if hasattr(self._winlib, stdcall):
                     # Backwards compatibility.  Some methods do not exist on
