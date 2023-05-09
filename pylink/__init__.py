@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 __title__ = 'pylink'
 __author__ = 'Square Embedded Software Team'
 __author_email__ = 'esw-team@squareup.com'

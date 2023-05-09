@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.1.0]
+### Added
+- @chanqueo: Added `use_tmpcpy` field to constructor for `JLink` and `Library`
+  instances to workaround temporary files not been cleaned up; a future patch
+  will change the default behaviour based on the version of the SDK. By
+  default, temporary files are used for the SDK binary.
+
+### Changed
+- @curtishx: Changed decorator on `set_reset_strategy()` from
+  `@connection_required` to `@open_required`.
+
+### Removed
+- @avi-jois: Removed dependency on `future`.
+
 ## [1.0.0]
 
 ### Changed

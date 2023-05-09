@@ -17,3 +17,6 @@ In the order of appearance in the commit history:
 | Chris Duf                 | @dottspina         |
 | Bora Özgen                | @boraozgen         |
 | Marco Nilsson             | @denravonska       |
+| Curtis                    | @CurtisHx          |
+| Avinash Jois              | @avi-jois          |
+| Olivier Chanquelin        | @chanqueo          |
