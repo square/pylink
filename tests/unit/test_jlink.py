@@ -2724,14 +2724,7 @@ class TestJLink(unittest.TestCase):
         self.jlink.halted = mock.Mock()
         self.jlink.halted.return_value = True
 
-        # BeginDownload failing
-        self.dll.JLINKARM_BeginDownload.return_value = -1
-        self.dll.JLINKARM_EndDownload.return_value = 0
-        with self.assertRaises(JLinkException):
-            self.jlink.flash([0], 0)
-
         # EndDownload failing
-        self.dll.JLINKARM_BeginDownload.return_value = 0
         self.dll.JLINKARM_EndDownload.return_value = -1
         with self.assertRaises(JLinkException):
             self.jlink.flash([0], 0)
@@ -2745,7 +2738,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.dll.JLINKARM_BeginDownload.return_value = 0
         self.dll.JLINKARM_WriteMem.return_value = 0
         self.dll.JLINKARM_EndDownload.return_value = 0
 

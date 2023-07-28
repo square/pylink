@@ -2194,9 +2194,7 @@ class JLink(object):
             pass
 
         # Perform read-modify-write operation.
-        res = self._dll.JLINKARM_BeginDownload(flags=flags)
-        if res < 0:
-            raise errors.JLinkEraseException(res)
+        self._dll.JLINKARM_BeginDownload(flags=flags)
 
         if isinstance(data, list):
             data = bytes(data)
