@@ -20,3 +20,4 @@ In the order of appearance in the commit history:
 | Curtis                    | @CurtisHx          |
 | Avinash Jois              | @avi-jois          |
 | Olivier Chanquelin        | @chanqueo          |
+| Christopher Pattenden     | @cpattenden-sq     |
