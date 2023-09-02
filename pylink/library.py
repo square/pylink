@@ -139,7 +139,7 @@ class Library(object):
             return Library.WINDOWS_32_JLINK_SDK_NAME
 
     @classmethod
-    def can_load_library(dllpath):
+    def can_load_library(cls, dllpath):
         """Test whether a library is the correct architecture to load.
 
         Args:
