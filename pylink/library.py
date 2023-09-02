@@ -218,7 +218,7 @@ class Library(object):
 
             for fname in fnames:
                 fpath = os.path.join(directory_name, fname)
-                if not self.can_load_library(fpath):
+                if not Library.can_load_library(fpath):
                     continue
                 if util.is_os_64bit():
                     if '_x86' not in fname:
