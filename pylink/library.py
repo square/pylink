@@ -151,7 +151,7 @@ class Library(object):
         try:
             ctypes.CDLL(dllpath)
             return True
-        except:
+        except OSError:
             return False
 
     @classmethod
@@ -218,10 +218,10 @@ class Library(object):
 
             for fname in fnames:
                 fpath = os.path.join(directory_name, fname)
-                if not cls.can_load_library(fpath):
-                    continue
                 if util.is_os_64bit():
-                    if '_x86' not in fname:
+                    if not cls.can_load_library(fpath):
+                        continue
+                    elif '_x86' not in fname:
                         yield fpath
                 elif x86_found:
                     if '_x86' in fname:
