@@ -1090,7 +1090,7 @@ class JLink(object):
         return None
 
     @open_required
-    def connect(self, chip_name, speed='auto', verbose=False):
+    def connect(self, chip_name=None, speed='auto', verbose=False):
         """Connects the J-Link to its target.
 
         Args:
@@ -1112,13 +1112,18 @@ class JLink(object):
 
         # Determine which device we are.  This is essential for using methods
         # like 'unlock' or 'lock'.
-        index = self.get_device_index(chip_name)
+        index = None
+        if chip_name is None:
+            # If no chip name is given, then we will use the SelectDialog.
+            index = self._dll.JLINKARM_DEVICE_SelectDialog(0,0,0)
+        else:
+            index = self.get_device_index(chip_name)
 
         self._device = self.supported_device(index)
 
         # This is weird but is currently the only way to specify what the
         # target is to the J-Link.
-        self.exec_command('Device = %s' % chip_name)
+        self.exec_command('Device = %s' % self._device.name)
 
         # Need to select target interface speed here, so the J-Link knows what
         # speed to use to establish target communication.
