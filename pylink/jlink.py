@@ -3169,6 +3169,80 @@ class JLink(object):
         return self.memory_write32(addr, words, zone=zone)
 
     @connection_required
+    def read_bytes(self, addr, size, zone=None):
+        """Reads memory bytes from a target system or specific memory zone.
+
+        The optional ``zone`` specifies a memory zone to access to read from,
+        e.g. ``IDATA``, ``DDATA``, or ``CODE``.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          addr (int): start address to read from
+          size (int): number of bytes to read
+          zone (str): optional memory zone name to access
+
+        Returns:
+          Bytes read from the target system.
+
+        Raises:
+          JLinkException: if memory could not be read.
+        """
+        buf = None
+        access = 0 # default, "whatever works best"
+
+        # allocate buffer of size bytes
+        buf = ctypes.create_string_buffer(size)
+
+        args = [addr, size, buf, access]
+
+        method = self._dll.JLINKARM_ReadMemEx
+        if zone is not None:
+            method = self._dll.JLINKARM_ReadMemZonedEx
+            args.append(zone.encode())
+
+        bytes_read = method(*args)
+        if bytes_read < 0:
+            raise errors.JLinkReadException(bytes_read)
+
+        return buf[:bytes_read]
+
+    @connection_required
+    def write_bytes(self, addr, data, zone=None):
+        """Writes memory to a target system or specific memory zone.
+
+        The optional ``zone`` specifies a memory zone to access to write to,
+        e.g. ``IDATA``, ``DDATA``, or ``CODE``.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          addr (int): start address to write to
+          data (bytes): data bytes to write
+          zone (str): optional memory zone name to access
+
+        Returns:
+          Number of bytes written.
+
+        Raises:
+          JLinkException: on write hardware failure.
+        """
+        buf_size = len(data)
+        buf = ctypes.create_string_buffer(data, buf_size)
+        access = 0
+
+        args = [addr, buf_size, buf, access]
+
+        method = self._dll.JLINKARM_WriteMemEx
+        if zone is not None:
+            method = self._dll.JLINKARM_WriteMemZonedEx
+            args.append(zone.encode())
+
+        bytes_written = method(*args)
+        if bytes_written < 0:
+            raise errors.JLinkWriteException(bytes_written)
+
+        return bytes_written
+
+    @connection_required
     def register_read(self, register_index):
         """Reads the value from the given register.
 
