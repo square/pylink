@@ -6215,10 +6215,11 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         args = [1, 2, 3, 4, 5]
+        expected = [1, 3, 2, 4, 5]
 
         self.dll.JLINKARM_CP15_WriteEx.return_value = 0
         actual = self.jlink.cp15_register_write(*args)
-        assert self.dll.JLINKARM_CP15_WriteEx.assert_called_once_with(*args)
+        self.dll.JLINKARM_CP15_WriteEx.assert_called_once_with(*expected)
 
     def test_cp15_register_write_raises_exception_if_CP15_WriteEx_fails(self):
         """Tests that cp15_register_write raises a JLinkException on failure.
@@ -6242,9 +6243,10 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         args = ['my/file/path']
+        expected = [b'my/file/path']
         self.dll.JLINKARM_SetLogFile.return_value = 0
         self.jlink.set_log_file(*args)
-        assert self.dll.JLINKARM_SetLogFile.assert_called_once_with(*args)
+        self.dll.JLINKARM_SetLogFile.assert_called_once_with(*expected)
 
     def test_set_log_file_raises_exception_if_SetLogFile_fails(self):
         """Tests that set_log_file raises a JLinkException on failure.
