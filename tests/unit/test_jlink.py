@@ -2971,12 +2971,12 @@ class TestJLink(unittest.TestCase):
         self.jlink.halted.return_value = True
 
         self.assertEqual(True, self.jlink.restart())
-        self.dll.JLINKARM_GoEx.called_once_with(0, 0)
+        self.dll.JLINKARM_GoEx.assert_called_once_with(0, 0)
 
         self.dll.JLINKARM_GoEx = mock.Mock()
 
         self.assertEqual(True, self.jlink.restart(10, skip_breakpoints=True))
-        self.dll.JLINKARM_GoEx.called_once_with(10, enums.JLinkFlags.GO_OVERSTEP_BP)
+        self.dll.JLINKARM_GoEx.assert_called_once_with(10, enums.JLinkFlags.GO_OVERSTEP_BP)
 
     @mock.patch('time.sleep')
     def test_jlink_halt_failure(self, mock_sleep):
@@ -6218,7 +6218,7 @@ class TestJLink(unittest.TestCase):
 
         self.dll.JLINKARM_CP15_WriteEx.return_value = 0
         actual = self.jlink.cp15_register_write(*args)
-        assert self.dll.JLINKARM_CP15_WriteEx.called_once_with(*args)
+        assert self.dll.JLINKARM_CP15_WriteEx.assert_called_once_with(*args)
 
     def test_cp15_register_write_raises_exception_if_CP15_WriteEx_fails(self):
         """Tests that cp15_register_write raises a JLinkException on failure.
@@ -6244,7 +6244,7 @@ class TestJLink(unittest.TestCase):
         args = ['my/file/path']
         self.dll.JLINKARM_SetLogFile.return_value = 0
         self.jlink.set_log_file(*args)
-        assert self.dll.JLINKARM_SetLogFile.called_once_with(*args)
+        assert self.dll.JLINKARM_SetLogFile.assert_called_once_with(*args)
 
     def test_set_log_file_raises_exception_if_SetLogFile_fails(self):
         """Tests that set_log_file raises a JLinkException on failure.

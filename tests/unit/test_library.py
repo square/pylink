@@ -1034,9 +1034,9 @@ class TestLibrary(unittest.TestCase):
 
         mock_find_library.assert_called_once_with(library.Library.JLINK_SDK_OBJECT)
         # JLinkarmDlInfo has not been instantiated.
-        self.assertEquals(0, mock_dlinfo_ctr.call_count)
+        self.assertEqual(0, mock_dlinfo_ctr.call_count)
         # Fallback to "search by file name" has succeeded.
-        self.assertEquals(1, mock_load_library.call_count)
+        self.assertEqual(1, mock_load_library.call_count)
         self.assertEqual(directories[0], lib._path)
 
     @mock.patch('os.name', new='posix')
@@ -1080,9 +1080,9 @@ class TestLibrary(unittest.TestCase):
 
         mock_find_library.assert_any_call(library.Library.JLINK_SDK_OBJECT)
         mock_find_library.assert_any_call('dl')
-        self.assertEquals(2, mock_find_library.call_count)
+        self.assertEqual(2, mock_find_library.call_count)
         # Called once in JLinkarmDlInfo and once in Library.
-        self.assertEquals(2, mock_load_library.call_count)
+        self.assertEqual(2, mock_load_library.call_count)
         # The dlinfo() dance silently failed, but will answer None resolved path.
         self.assertIsNone(library.Library._dlinfo.path)
         # Fallback to "search by file name" has succeeded.
@@ -1121,8 +1121,8 @@ class TestLibrary(unittest.TestCase):
 
         mock_find_library.assert_any_call(library.Library.JLINK_SDK_OBJECT)
         mock_find_library.assert_any_call('dl')
-        self.assertEquals(2, mock_find_library.call_count)
-        self.assertEquals(2, mock_load_library.call_count)
+        self.assertEqual(2, mock_find_library.call_count)
+        self.assertEqual(2, mock_load_library.call_count)
 
 
 if __name__ == '__main__':
