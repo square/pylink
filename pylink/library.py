@@ -139,6 +139,23 @@ class Library(object):
             return Library.WINDOWS_32_JLINK_SDK_NAME
 
     @classmethod
+    def can_load_library(cls, dllpath):
+        """Test whether a library is the correct architecture to load.
+
+        Args:
+          cls (Library): the ``Library`` class
+          dllpath (str): A path to a library.
+
+        Returns:
+          ``True`` if the library could be successfully loaded, ``False`` if not.
+        """
+        try:
+            ctypes.CDLL(dllpath)
+            return True
+        except OSError:
+            return False
+
+    @classmethod
     def find_library_windows(cls):
         """Loads the SEGGER DLL from the windows installation directory.
 
@@ -203,7 +220,9 @@ class Library(object):
             for fname in fnames:
                 fpath = os.path.join(directory_name, fname)
                 if util.is_os_64bit():
-                    if '_x86' not in fname:
+                    if not cls.can_load_library(fpath):
+                        continue
+                    elif '_x86' not in fname:
                         yield fpath
                 elif x86_found:
                     if '_x86' in fname:

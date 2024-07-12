@@ -880,13 +880,16 @@ class TestLibrary(unittest.TestCase):
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
     @mock.patch('ctypes.util.find_library')
     @mock.patch('ctypes.cdll.LoadLibrary')
+    @mock.patch('ctypes.CDLL')
     @mock.patch('pylink.library.os')
-    def test_linux_6_10_0_64bit(self, mock_os, mock_load_library, mock_find_library, mock_open, mock_is_os_64bit):
+    def test_linux_6_10_0_64bit(self, mock_os, mock_cdll, mock_load_library,
+                                mock_find_library, mock_open, mock_is_os_64bit):
         """Tests finding the DLL on Linux through the SEGGER application for V6.0.0+ on 64 bit linux.
 
         Args:
           self (TestLibrary): the ``TestLibrary`` instance
           mock_os (Mock): a mocked version of the ``os`` module
+          mock_cdll (Mock): a mocked version of the `cdll.CDLL` class constructor
           mock_load_library (Mock): a mocked version of the library loader
           mock_find_library (Mock): a mocked call to ``ctypes`` find library
           mock_open (Mock): mock for mocking the call to ``open()``
@@ -896,6 +899,7 @@ class TestLibrary(unittest.TestCase):
           ``None``
         """
         mock_find_library.return_value = None
+        mock_cdll.return_value = None
         directories = [
             '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm_x86.so.6.10',
             '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm.so.6.10',
@@ -917,6 +921,49 @@ class TestLibrary(unittest.TestCase):
         lib = library.Library()
         lib.unload = mock.Mock()
         self.assertEqual(None, lib._path)
+
+    @mock.patch('sys.platform', new='linux2')
+    @mock.patch('pylink.util.is_os_64bit', return_value=True)
+    @mock.patch('pylink.library.open')
+    @mock.patch('os.remove', new=mock.Mock())
+    @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
+    @mock.patch('ctypes.util.find_library')
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    @mock.patch('ctypes.CDLL')
+    @mock.patch('pylink.library.os')
+    def test_linux_64bit_no_x86(self, mock_os, mock_cdll, mock_load_library,
+                                mock_find_library, mock_open, mock_is_os_64bit):
+        """Tests finding the DLL on Linux when no library name contains 'x86'.
+
+        Args:
+          self (TestLibrary): the ``TestLibrary`` instance
+          mock_os (Mock): a mocked version of the ``os`` module
+          mock_cdll (Mock): a mocked version of the `cdll.CDLL` class constructor
+          mock_load_library (Mock): a mocked version of the library loader
+          mock_find_library (Mock): a mocked call to ``ctypes`` find library
+          mock_open (Mock): mock for mocking the call to ``open()``
+          mock_is_os_64bit (Mock): mock for mocking the call to ``is_os_64bit``, returns True
+
+        Returns:
+          ``None``
+        """
+        def on_cdll(name):
+            if '_arm' in name:
+                raise OSError
+
+        mock_find_library.return_value = None
+        mock_cdll.side_effect = on_cdll
+        directories = [
+            '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm_arm.so.6.10',
+            '/opt/SEGGER/JLink_Linux_V610d_x86_64/libjlinkarm.so.6.10',
+        ]
+
+        self.mock_directories(mock_os, directories, '/')
+
+        lib = library.Library()
+        lib.unload = mock.Mock()
+        load_library_args, load_libary_kwargs = mock_load_library.call_args
+        self.assertEqual(directories[1], lib._path)
 
     @mock.patch('sys.platform', new='linux')
     @mock.patch('pylink.library.open')
@@ -960,8 +1007,9 @@ class TestLibrary(unittest.TestCase):
     @mock.patch('pylink.platform.libc_ver', return_value=('libc', '1.0'))
     @mock.patch('ctypes.util.find_library', return_value='libjlinkarm.so.7')
     @mock.patch('pylink.library.JLinkarmDlInfo.__init__')
+    @mock.patch('ctypes.CDLL')
     @mock.patch('ctypes.cdll.LoadLibrary')
-    def test_linux_glibc_unavailable(self, mock_load_library, mock_dlinfo_ctr, mock_find_library,
+    def test_linux_glibc_unavailable(self, mock_load_library, mock_cdll, mock_dlinfo_ctr, mock_find_library,
                                      mock_libc_ver, mock_is_os_64bit, mock_os,  mock_open):
         """Confirms the whole JLinkarmDlInfo code path is not involved when GNU libc
         extensions are unavailable on a Linux system, and that we'll successfully fallback
@@ -974,6 +1022,7 @@ class TestLibrary(unittest.TestCase):
           to the "search by file name" code path, aka find_library_linux()
         - and "successfully load" a mock library file from /opt/SEGGER/JLink
         """
+        mock_cdll.side_effect = None
         directories = [
             # Library.find_library_linux() should find this.
             '/opt/SEGGER/JLink/libjlinkarm.so.6'
@@ -999,8 +1048,9 @@ class TestLibrary(unittest.TestCase):
     @mock.patch('pylink.util.is_os_64bit', return_value=True)
     @mock.patch('pylink.platform.libc_ver', return_value=('glibc', '2.34'))
     @mock.patch('ctypes.util.find_library')
+    @mock.patch('ctypes.CDLL')
     @mock.patch('ctypes.cdll.LoadLibrary')
-    def test_linux_dl_unavailable(self, mock_load_library, mock_find_library, mock_libc_ver,
+    def test_linux_dl_unavailable(self, mock_load_library, mock_cdll, mock_find_library, mock_libc_ver,
                                   mock_is_os_64bit, mock_os,  mock_open):
         """Confirms we successfully fallback to the "search by file name" code path when libdl is
         unavailable despite the host system presenting itself as POSIX (GNU/Linux).
@@ -1012,6 +1062,7 @@ class TestLibrary(unittest.TestCase):
           to the "search by file name" code path, aka find_library_linux()
         - and "successfully load" a mock library file from /opt/SEGGER/JLink
         """
+        mock_cdll.side_effect = None
         mock_find_library.side_effect = [
             # find_library('jlinkarm')
             'libjlinkarm.so.6',
