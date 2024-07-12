@@ -143,10 +143,11 @@ class Library(object):
         """Test whether a library is the correct architecture to load.
 
         Args:
-          dllpath: A path to a library.
+          cls (Library): the ``Library`` class
+          dllpath (str): A path to a library.
 
         Returns:
-          True if the library could be successfully loaded, False if not.
+          ``True`` if the library could be successfully loaded, ``False`` if not.
         """
         try:
             ctypes.CDLL(dllpath)
