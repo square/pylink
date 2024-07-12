@@ -21,3 +21,5 @@ In the order of appearance in the commit history:
 | Avinash Jois              | @avi-jois          |
 | Olivier Chanquelin        | @chanqueo          |
 | Christopher Pattenden     | @cpattenden-sq     |
+| Dominic Shelton           | @frogamic          |
+| Fletcher D                | @FletcherD         |

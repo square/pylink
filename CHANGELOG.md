@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.2.1]
+### Fixed
+- @FletcherD: Fixed a bug in `load_library()` on Linux where a 32-bit library
+  was being incorrectly loaded on ARM64-based Linux machines.
+
+### Changed
+- @frogamic: Unit tests are now compatible with Python 3.12.
+
 ## [1.2.0]
 ### Changed
 - @cpattenden-sq: Fixed bug in `flash()` where return value was being checked
