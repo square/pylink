@@ -832,8 +832,7 @@ class JLink(object):
 
     @open_required
     def set_script_file(self, file_path):
-        """Sets a custom JLink Script file to use
-        see https://wiki.segger.com/J-Link_script_files
+        """Sets the custom `Script File`_ to use.
 
         Args:
           self (JLink): the ``JLink`` instance
@@ -845,6 +844,8 @@ class JLink(object):
         Raises:
           JLinkException: if the path specified is invalid.
 
+        .. _Script File:
+          https://wiki.segger.com/J-Link_script_files
         """
         res = self.exec_command('scriptfile = %s' % file_path)
         if res:
