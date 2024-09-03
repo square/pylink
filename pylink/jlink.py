@@ -849,7 +849,7 @@ class JLink(object):
         """
         res = self.exec_command('scriptfile = %s' % file_path)
         if res:
-            raise errors.JLinkException("Failed to set JLink Script File")
+            raise errors.JLinkException('Failed to set JLink Script File: %r' % file_path)
 
     @open_required
     def invalidate_firmware(self):
