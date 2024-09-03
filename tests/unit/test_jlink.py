@@ -6277,7 +6277,7 @@ class TestJLink(unittest.TestCase):
         self.jlink.set_script_file(*args)
         self.jlink.exec_command.assert_called_once_with(*expected)
 
-    def test_set_script_file_raises_exception_if_ExecCommand_fails(self):
+    def test_set_script_file_raises_exception_if_exec_command_fails(self):
         """Tests that set_script_file raises a JLinkException on failure.
         Args:
           self (TestJLink): the ``TestJLink`` instance
