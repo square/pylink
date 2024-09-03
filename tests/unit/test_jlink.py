@@ -6260,6 +6260,36 @@ class TestJLink(unittest.TestCase):
         with self.assertRaises(JLinkException):
             self.jlink.set_log_file('my/file/path')
 
+    def test_set_script_file_success(self):
+        """Tests that set_script_file uses provided parameters.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        args = ['my/file/path']
+        expected = ['scriptfile = my/file/path']
+        self.jlink.exec_command = mock.Mock()
+        self.jlink.exec_command.return_value = 0
+
+        self.jlink.set_script_file(*args)
+        self.jlink.exec_command.assert_called_once_with(*expected)
+
+    def test_set_script_file_raises_exception_if_exec_command_fails(self):
+        """Tests that set_script_file raises a JLinkException on failure.
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.jlink.exec_command = mock.Mock()
+        self.jlink.exec_command.return_value = -1
+        with self.assertRaises(JLinkException):
+            self.jlink.set_script_file('my/file/path')
+
 
 if __name__ == '__main__':
     unittest.main()

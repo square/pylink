@@ -831,6 +831,27 @@ class JLink(object):
             raise errors.JLinkException(res)
 
     @open_required
+    def set_script_file(self, file_path):
+        """Sets the custom `Script File`_ to use.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          file_path (str): file path to the JLink script file to be used
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: if the path specified is invalid.
+
+        .. _Script File:
+          https://wiki.segger.com/J-Link_script_files
+        """
+        res = self.exec_command('scriptfile = %s' % file_path)
+        if res:
+            raise errors.JLinkException('Failed to set JLink Script File: %r' % file_path)
+
+    @open_required
     def invalidate_firmware(self):
         """Invalidates the emulator's firmware.
 
