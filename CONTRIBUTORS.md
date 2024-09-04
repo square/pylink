@@ -23,3 +23,4 @@ In the order of appearance in the commit history:
 | Christopher Pattenden     | @cpattenden-sq     |
 | Dominic Shelton           | @frogamic          |
 | Fletcher D                | @FletcherD         |
+| G Towers                  | @gtowers-dukosi    |

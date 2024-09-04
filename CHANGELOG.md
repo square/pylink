@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.3.0]
+### Added
+- @gtowers-dukosi: Added API method `set_script_file()` to specify a Script
+  File to be loaded.
+
 ## [1.2.1]
 ### Fixed
 - @FletcherD: Fixed a bug in `load_library()` on Linux where a 32-bit library
