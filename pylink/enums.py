@@ -734,6 +734,7 @@ class JLinkPowerTraceCommand(object):
     GET_CHANNEL_CAPS = 5
     GET_NUM_ITEMS = 6
 
+
 class JLinkPowerTraceRef(object):
     """Reference values to store on power trace capture.
 
