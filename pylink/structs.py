@@ -1261,3 +1261,210 @@ class JLinkRTTerminalStatus(ctypes.Structure):
         return 'Status <NumUpBuffers=%d, NumDownBuffers=%d, Running=%s>' % (self.NumUpBuffers,
                                                                             self.NumDownBuffers,
                                                                             self.IsRunning)
+
+
+class JLinkPowerTraceSetup(ctypes.Structure):
+    """Structure used to setup the power tracing.
+
+    Attributes:
+      SizeOfStruct: Size of the struct (DO NOT CHANGE).
+      ChannelMask: Bitmask indicating which channels to enable for capturing.
+      SampleFreq: Sampling frequency in Hertz.
+      RefSelect: Identifier of the reference value stored with every trace
+        (see ``enums.JLinkPowerTraceRef``).
+      EnableCond: `1` is tracing is only captured when CPU is running.
+    """
+    _fields_ = [
+        ('SizeOfStruct', ctypes.c_int32),
+        ('ChannelMask', ctypes.c_uint32),
+        ('SampleFreq', ctypes.c_uint32),
+        ('RefSelect', ctypes.c_int32),
+        ('EnableCond', ctypes.c_int32)
+    ]
+
+    def __init__(self):
+        """Initializes the ``JLinkPowerTraceSetup`` instance.
+
+        Sets the size of the structure.
+
+        Args:
+          self (JLinkPowerTraceSetup): the power trace instance.
+
+        Returns:
+          ``None``
+        """
+        super(JLinkPowerTraceSetup, self).__init__()
+        self.SizeOfStruct = ctypes.sizeof(self)
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceSetup): the ``JLinkPowerTraceSetup`` instance
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceSetup): the ``JLinkPowerTraceSetup`` instance
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(Channel Mask=%s, Freq=%uHz)' % (self.__class__.__name__, bin(self.ChannelMask), self.SampleFreq)
+
+
+class JLinkPowerTraceItem(ctypes.Structure):
+    """Structure used to represent a stored power trace item.
+
+    Attributes:
+      RefValue: the stored reference value.
+      Value: the actual recorded trace value.
+    """
+    _fields_ = [
+        ('RefValue', ctypes.c_uint32),
+        ('Value', ctypes.c_uint32)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceItem): the ``JLinkPowerTraceItem`` instance
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceItem): the ``JLinkPowerTraceItem`` instance
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(Value=%u, Reference=%u)' % (self.__class__.__name__, self.Value, self.RefValue)
+
+
+class JLinkPowerTraceCaps(ctypes.Structure):
+    """Structure used to retrieve or specify available power tracing channels.
+
+    Attributes:
+      SizeOfStruct: the size of this structure (in bytes).
+      ChannelMask: bitmask of available channels.
+    """
+    _fields_ = [
+        ('SizeOfStruct', ctypes.c_int32),
+        ('ChannelMask', ctypes.c_uint32)
+    ]
+
+    def __init__(self):
+        """Initializes the ``JLinkPowerTraceCaps`` instance.
+
+        Sets the size of the structure.
+
+        Args:
+          self (JLinkPowerTraceCaps): the power trace caps instance.
+
+        Returns:
+          ``None``
+        """
+        super(JLinkPowerTraceCaps, self).__init__()
+        self.SizeOfStruct = ctypes.sizeof(self)
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceCaps): the caps instance.
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceCaps): the caps instance.
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(Channel Mask=%s)' % (self.__class__.__name__, bin(self.ChannelMask))
+
+
+class JLinkPowerTraceChannelCaps(ctypes.Structure):
+    """Structure representing the capabilities for the queried channels.
+
+    Attributes:
+      SizeOfStruct: the size of this structure (in bytes).
+      BaseSampleFreq: the base sampling frequeny (in Hertz).
+      MinDiv: the minimum divider of the base sampling frequency.
+    """
+    _fields_ = [
+        ('SizeOfStruct', ctypes.c_int32),
+        ('BaseSampleFreq', ctypes.c_uint32),
+        ('MinDiv', ctypes.c_uint32)
+    ]
+
+    def __init__(self):
+        """Initializes the ``JLinkPowerTraceChannelCaps`` instance.
+
+        Sets the size of the structure.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          ``None``
+        """
+        super(JLinkPowerTraceChannelCaps, self).__init__()
+        self.SizeOfStruct = ctypes.sizeof(self)
+
+    @property
+    def max_sample_freq(self):
+        """Returns the maximum sample frequency that can be used.
+
+        The maximum sampling frequency is the largest frequency that can be
+        specified when configuring power tracing, and is computed based on the
+        minimum divider and base sampling frequency.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          ``float``
+        """
+        return (self.BaseSampleFreq * 1.0) / self.MinDiv
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(SampleFreq=%uHz, MinDiv=%u)' % (self.__class__.__name__, self.BaseSampleFreq, self.MinDiv)

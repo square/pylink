@@ -464,6 +464,69 @@ class TestStructs(unittest.TestCase):
         self.assertEqual('JLinkRTTerminalStatus(NumUpBuffers=3, NumDownBuffers=3)', repr(stat))
         self.assertEqual('Status <NumUpBuffers=3, NumDownBuffers=3, Running=1>', str(stat))
 
+    def test_jlink_power_trace_setup(self):
+        """Validates the ``JLinkPowerTraceSetup`` serializes correctly.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        setup = structs.JLinkPowerTraceSetup()
+        setup.ChannelMask = 0x3
+        setup.SampleFreq = 1000
+
+        self.assertEqual(20, setup.SizeOfStruct)
+        self.assertEqual('JLinkPowerTraceSetup(Channel Mask=0b11, Freq=1000Hz)', repr(setup))
+
+    def test_jlink_power_trace_item(self):
+        """Validates the ``JLinkPowerTraceItem`` serializes correctly.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        item = structs.JLinkPowerTraceItem()
+        item.RefValue = 0xDEADBEEF
+        item.Value = 13
+
+        self.assertEqual('JLinkPowerTraceItem(Value=13, Reference=3735928559)', repr(item))
+
+    def test_jlink_power_trace_caps(self):
+        """Validates that the ``JLinkPowerTraceCaps`` serializes correctly.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        caps = structs.JLinkPowerTraceCaps()
+        caps.ChannelMask = 0x3
+
+        self.assertEqual(8, caps.SizeOfStruct)
+        self.assertEqual('JLinkPowerTraceCaps(Channel Mask=0b11)', repr(caps))
+
+    def test_jlink_power_trace_channel_caps(self):
+        """Validates the ``JLinkPowerTraceChannelCaps`` instance.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        channel_caps = structs.JLinkPowerTraceChannelCaps()
+        channel_caps.BaseSampleFreq = 1000
+        channel_caps.MinDiv = 4
+
+        self.assertEqual(12, channel_caps.SizeOfStruct)
+        self.assertEqual(250, channel_caps.max_sample_freq)
+        self.assertEqual('JLinkPowerTraceChannelCaps(SampleFreq=1000Hz, MinDiv=4)', repr(channel_caps))
+
 
 if __name__ == '__main__':
     unittest.main()
