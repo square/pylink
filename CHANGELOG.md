@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [1.4.0]
 ### Added
-- @ford: Added Power Trace APIs.
+- @hkpeprah: Added Power Trace APIs.
 
 ## [1.3.0]
 ### Added
