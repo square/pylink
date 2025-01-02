@@ -27,6 +27,7 @@ try:
 except ImportError:
     import io as StringIO
 import ctypes
+import functools
 import itertools
 import unittest
 
@@ -6163,6 +6164,7 @@ class TestJLink(unittest.TestCase):
         """Tests that cp15_present returns ``True`` when CP15_IsPresent
         returns a value different from 0 and ``False`` when CP15_IsPresent
         returns a value equal to 0.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -6177,6 +6179,7 @@ class TestJLink(unittest.TestCase):
     def test_cp15_register_read_returns_result_from_JLINKARM_CP15_ReadEx(self):
         """Tests that cp15_register_read returns whatever value CP15_ReadEx
         returns.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -6196,6 +6199,7 @@ class TestJLink(unittest.TestCase):
 
     def test_cp15_register_read_raises_exception_if_CP15_ReadEx_fails(self):
         """Tests that cp15_register_read raises a JLinkException on failure.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -6208,6 +6212,7 @@ class TestJLink(unittest.TestCase):
 
     def test_cp15_register_write_success(self):
         """Tests that cp15_register_write uses provided parameters.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -6250,6 +6255,7 @@ class TestJLink(unittest.TestCase):
 
     def test_set_log_file_raises_exception_if_SetLogFile_fails(self):
         """Tests that set_log_file raises a JLinkException on failure.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -6279,6 +6285,7 @@ class TestJLink(unittest.TestCase):
 
     def test_set_script_file_raises_exception_if_exec_command_fails(self):
         """Tests that set_script_file raises a JLinkException on failure.
+
         Args:
           self (TestJLink): the ``TestJLink`` instance
 
@@ -6289,6 +6296,242 @@ class TestJLink(unittest.TestCase):
         self.jlink.exec_command.return_value = -1
         with self.assertRaises(JLinkException):
             self.jlink.set_script_file('my/file/path')
+
+    def test_power_trace_configure(self):
+        """Tests configuring power trace.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        channel_mask = 0x3E
+        freq = 400
+        expected_freq = 500
+
+        def _powertrace_control(command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.SETUP, command)
+            self.assertEqual(0, out_ptr)
+
+            setup = ctypes.cast(in_ptr, ctypes.POINTER(structs.JLinkPowerTraceSetup))[0]
+            self.assertEqual(channel_mask, setup.ChannelMask)
+            self.assertEqual(freq, setup.SampleFreq)
+            self.assertEqual(0, setup.RefSelect)
+            self.assertEqual(0, setup.EnableCond)
+
+            return expected_freq
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = _powertrace_control
+        self.assertEqual(expected_freq, self.jlink.power_trace_configure([1, 2, 3, 4, 5], 400, 0, True))
+
+    def test_power_trace_start(self):
+        """Tests starting power trace.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def _powertrace_control(command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.START, command)
+            self.assertEqual(0, in_ptr)
+            self.assertEqual(0, out_ptr)
+            self.dll.JLINK_POWERTRACE_Control.side_effect = [-1]
+            return 0
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = _powertrace_control
+
+        self.assertEqual(None, self.jlink.power_trace_start())
+
+        with self.assertRaises(JLinkException):
+            self.jlink.power_trace_start()
+
+    def test_power_trace_stop(self):
+        """Tests stopping power trace.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def _powertrace_control(command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.STOP, command)
+            self.assertEqual(0, in_ptr)
+            self.assertEqual(0, out_ptr)
+            self.dll.JLINK_POWERTRACE_Control.side_effect = [-1]
+            return 0
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = _powertrace_control
+
+        self.assertEqual(None, self.jlink.power_trace_stop())
+
+        with self.assertRaises(JLinkException):
+            self.jlink.power_trace_stop()
+
+    def test_power_trace_flush(self):
+        """Tests flushing the power trace buffer.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def _powertrace_control(command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.FLUSH, command)
+            self.assertEqual(0, in_ptr)
+            self.assertEqual(0, out_ptr)
+            self.dll.JLINK_POWERTRACE_Control.side_effect = [-1]
+            return 0
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = _powertrace_control
+
+        self.assertEqual(None, self.jlink.power_trace_flush())
+
+        with self.assertRaises(JLinkException):
+            self.jlink.power_trace_flush()
+
+    def test_power_trace_get_channels(self):
+        """Tests getting the available channels.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        channel_mask = 0x3E
+
+        def _powertrace_control(command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.GET_CAPS, command)
+            self.assertEqual(0, in_ptr)
+
+            caps = ctypes.cast(out_ptr, ctypes.POINTER(structs.JLinkPowerTraceCaps))[0]
+            caps.ChannelMask = channel_mask
+
+            return 0
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = _powertrace_control
+
+        channels = self.jlink.power_trace_get_channels()
+        self.assertEqual([1, 2, 3, 4, 5], channels)
+
+    def test_power_trace_get_channel_caps(self):
+        """Tests getting capabilities for the specified channels.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        channel_mask = 0x3E
+        sample_freq = 1000
+        min_div = 2
+
+        def _powertrace_control(command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.GET_CHANNEL_CAPS, command)
+
+            caps = ctypes.cast(in_ptr, ctypes.POINTER(structs.JLinkPowerTraceCaps))[0]
+            channel_caps = ctypes.cast(out_ptr, ctypes.POINTER(structs.JLinkPowerTraceChannelCaps))[0]
+
+            self.assertEqual(channel_mask, caps.ChannelMask)
+
+            channel_caps.BaseSampleFreq = sample_freq
+            channel_caps.MinDiv = min_div
+
+            return 0
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = _powertrace_control
+
+        channel_caps = self.jlink.power_trace_get_channel_capabilities([1, 2, 3, 4, 5])
+        self.assertEqual(sample_freq, channel_caps.BaseSampleFreq)
+        self.assertEqual(min_div, channel_caps.MinDiv)
+        self.assertEqual(500, channel_caps.max_sample_freq)
+
+    def test_power_trace_get_num_items(self):
+        """Tests failing to read the number of items.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        def _powertrace_control(command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.GET_NUM_ITEMS, command)
+            return -1
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = _powertrace_control
+
+        with self.assertRaises(JLinkException):
+            _ = self.jlink.power_trace_get_num_items()
+
+    def test_power_trace_read(self):
+        """Tests reading power trace data.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        actual_items = []
+        for _ in range(2):
+            items = []
+            for i in range(3):
+                item = structs.JLinkPowerTraceItem()
+                item.RefValue = (1 << i)
+                item.Value = (1 << (i + 1))
+                items.append(item)
+            actual_items.append(items)
+
+        def _powertrace_control(actual_items, command, in_ptr, out_ptr):
+            self.assertEqual(enums.JLinkPowerTraceCommand.GET_NUM_ITEMS, command)
+            if actual_items:
+                return len(actual_items[0])
+            return 0
+
+        def _powertrace_read(actual_items, item_ptr, num_items):
+            if not actual_items:
+                return 0
+
+            to_read = min(len(actual_items[0]), num_items)
+            read_items = []
+            for _ in range(to_read):
+                read_items.append(actual_items[0].pop(0))
+
+            if len(actual_items[0]) == 0:
+                actual_items.pop(0)
+
+            if to_read > 0:
+                item_array = ctypes.cast(item_ptr, ctypes.POINTER(structs.JLinkPowerTraceItem * num_items))[0]
+                item_array[:to_read] = read_items
+            return to_read
+
+        self.dll.JLINK_POWERTRACE_Control.side_effect = functools.partial(_powertrace_control, actual_items)
+        self.dll.JLINK_POWERTRACE_Read.side_effect = functools.partial(_powertrace_read, actual_items)
+
+        read_items = self.jlink.power_trace_read()
+        self.assertEqual(3, len(read_items))
+        self.assertEqual(1, read_items[0].RefValue)
+        self.assertEqual(2, read_items[1].RefValue)
+        self.assertEqual(4, read_items[2].RefValue)
+
+        read_items = self.jlink.power_trace_read(2)
+        self.assertEqual(2, len(read_items))
+        self.assertEqual(1, read_items[0].RefValue)
+        self.assertEqual(2, read_items[1].RefValue)
+
+        read_items = self.jlink.power_trace_read(100)
+        self.assertEqual(1, len(read_items))
+        self.assertEqual(4, read_items[0].RefValue)
+
+        read_items = self.jlink.power_trace_read(10)
+        self.assertEqual(0, len(read_items))
 
 
 if __name__ == '__main__':

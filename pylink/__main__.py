@@ -17,8 +17,11 @@ import pylink
 import argparse
 import logging
 import os
-import six
 import sys
+try:
+    from six.moves import with_metaclass
+except (AttributeError, ImportError):
+    from six import with_metaclass
 
 
 class CommandMeta(type):
@@ -49,7 +52,7 @@ class CommandMeta(type):
         return newClass
 
 
-class Command(six.with_metaclass(CommandMeta)):
+class Command(with_metaclass(CommandMeta)):
     """Base command-class.
 
     All commands should inherit from this class.

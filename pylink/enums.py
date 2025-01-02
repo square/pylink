@@ -722,3 +722,28 @@ class JLinkRTTDirection(object):
     """RTT Direction."""
     UP = 0
     DOWN = 1
+
+
+class JLinkPowerTraceCommand(object):
+    """Power trace commands."""
+    SETUP = 0
+    START = 1
+    FLUSH = 2
+    STOP = 3
+    GET_CAPS = 4
+    GET_CHANNEL_CAPS = 5
+    GET_NUM_ITEMS = 6
+
+
+class JLinkPowerTraceRef(object):
+    """Reference values to store on power trace capture.
+
+    Attributes:
+        NONE: No reference value is stored.
+        BYTES: Number of bytes transferred via SWO is stored since capturing
+            started.
+        TIME: Number of milliseconds since capturing started.
+    """
+    NONE = 0
+    BYTES = 1
+    TIME = 2

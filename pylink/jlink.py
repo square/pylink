@@ -5250,3 +5250,221 @@ class JLink(object):
         if res != 0:
             raise errors.JLinkException(res)
         return res
+
+###############################################################################
+#
+# Power API
+#
+###############################################################################
+    @open_required
+    def power_trace_configure(self, channels, freq, ref, always):
+        """Configures power tracing.
+
+        This method must be called before calling the other power trace APIs. It
+        is the responsibility of the calling application code to keep track of
+        which channels were enabled in order to determine which trace samples
+        correspond to which channels when read.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          channels (list[int]): list specifying which channels to capture on (0 - 7).
+          freq (int): sampling frequency (in Hertz).
+          ref (JLinkPowerTraceRef): reference value to stored on capture.
+          always (bool): ``True`` to capture data even while CPU halted, otherwise ``False``.
+
+        Returns:
+          The sampling frequency (in Hz) for power sampling.
+
+        Raises:
+          JLinkException: on error
+          ValueError: invalid channels specified
+        """
+        if isinstance(channels, list):
+            channel_mask = 0x00
+            for channel in channels:
+                channel_mask |= (1 << channel)
+        else:
+            channel_mask = channels
+
+        if channel_mask > 0xFF:
+            raise ValueError("Channels must be in range 0 - 7")
+
+        setup = structs.JLinkPowerTraceSetup()
+        setup.ChannelMask = channel_mask
+        setup.SampleFreq = int(freq)
+        setup.RefSelect = int(ref)
+        setup.EnableCond = 0 if always else 1
+
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.SETUP, ctypes.byref(setup), 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+        return res
+
+    @open_required
+    def power_trace_start(self):
+        """Starts capturing data on the channels enabled via ``power_trace_configure()``.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.START, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+
+    @open_required
+    def power_trace_stop(self):
+        """Stops a capture started by ``power_trace_start()``.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.STOP, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+
+    @open_required
+    def power_trace_flush(self):
+        """Flushes all capture data.
+
+        Any data that has not been read by ``power_trace_read()`` is dropped.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.FLUSH, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+
+    @open_required
+    def power_trace_get_channels(self):
+        """Returns a list of the available channels for power tracing.
+
+        This method returns a list of the available channels for power tracing.
+        The application code can use this to determine which channels to
+        enable for tracing.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          List of available channel identifiers.
+
+        Raises:
+          JLinkException: on error
+        """
+        caps = structs.JLinkPowerTraceCaps()
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.GET_CAPS, 0, ctypes.byref(caps))
+        if res < 0:
+            raise errors.JLinkException(res)
+
+        return [i for i in range(0, 32) if (caps.ChannelMask >> i) & 0x1]
+
+    @open_required
+    def power_trace_get_channel_capabilities(self, channels):
+        """Returns the capabilities for the specified channels.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          channels (list[int]): list specifying which channels to get capabilities for.
+
+        Returns:
+          Channel capabilities.
+
+        Raises:
+          JLinkException: on error
+          ValueError: invalid channels specified
+        """
+        if isinstance(channels, list):
+            channel_mask = 0x00
+            for channel in channels:
+                channel_mask |= (1 << channel)
+        else:
+            channel_mask = channels
+
+        if channel_mask > 0xFF:
+            raise ValueError("Channels must be in range 0 - 7")
+
+        channel_caps = structs.JLinkPowerTraceChannelCaps()
+        caps = structs.JLinkPowerTraceCaps()
+        caps.ChannelMask = channel_mask
+
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.GET_CHANNEL_CAPS,
+                                                 ctypes.byref(caps),
+                                                 ctypes.byref(channel_caps))
+        if res < 0:
+            raise errors.JLinkException(res)
+
+        return channel_caps
+
+    @open_required
+    def power_trace_get_num_items(self):
+        """Returns a count of the number of items in the power trace buffer.
+
+        Since each channel is sampled simulataneously, the count of number of
+        items per channel is the return value of this function divided by the
+        number of active channels.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          Number of items in the power trace buffer.
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.GET_NUM_ITEMS, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+        return res
+
+    @open_required
+    def power_trace_read(self, num_items=None):
+        """Reads data from the power trace buffer.
+
+        Any read data is flushed from the power trace buffer.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          num_items (int): the number of items to read (if not specified, reads all).
+
+        Returns:
+          List of ``JLinkPowerTraceItem``s.
+
+        Raises:
+          JLinkException: on error
+        """
+        if num_items is None:
+            num_items = self.power_trace_get_num_items()
+
+        items = []
+        if num_items < 0:
+            raise ValueError("Invalid number of items requested, expected > 0, given %d" % num_items)
+        elif num_items > 0:
+            items = (structs.JLinkPowerTraceItem * num_items)()
+            res = self._dll.JLINK_POWERTRACE_Read(ctypes.byref(items), num_items)
+            if res < 0:
+                raise errors.JLinkException(res)
+
+            # Number of items may be less than the requested count, so clip the
+            # array here.
+            items = list(items)[:res]
+        return items
