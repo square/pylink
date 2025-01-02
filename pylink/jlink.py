@@ -5267,7 +5267,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance.
-          channels (list[int]): list specifying which channels to capture on (0-7).
+          channels (list[int]): list specifying which channels to capture on (0 - 7).
           freq (int): sampling frequency (in Hertz).
           ref (JLinkPowerTraceRef): reference value to stored on capture.
           always (bool): ``True`` to capture data even while CPU halted, otherwise ``False``.
@@ -5277,6 +5277,7 @@ class JLink(object):
 
         Raises:
           JLinkException: on error
+          ValueError: invalid channels specified
         """
         if isinstance(channels, list):
             channel_mask = 0x00
@@ -5284,6 +5285,9 @@ class JLink(object):
                 channel_mask |= (1 << channel)
         else:
             channel_mask = channels
+
+        if channel_mask > 0xFF:
+            raise ValueError("Channels must be in range 0 - 7")
 
         setup = structs.JLinkPowerTraceSetup()
         setup.ChannelMask = channel_mask
@@ -5386,6 +5390,7 @@ class JLink(object):
 
         Raises:
           JLinkException: on error
+          ValueError: invalid channels specified
         """
         if isinstance(channels, list):
             channel_mask = 0x00
@@ -5393,6 +5398,9 @@ class JLink(object):
                 channel_mask |= (1 << channel)
         else:
             channel_mask = channels
+
+        if channel_mask > 0xFF:
+            raise ValueError("Channels must be in range 0 - 7")
 
         channel_caps = structs.JLinkPowerTraceChannelCaps()
         caps = structs.JLinkPowerTraceCaps()
