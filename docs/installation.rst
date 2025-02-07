@@ -88,6 +88,7 @@ On Linux
 
    # Option A: Copy the library to your libraries directory.
    $ cp libjlinkarm.so /usr/local/lib/
+   $ sudo ldconfig
 
    # Option B: Add SEGGER's J-Link library path to your libraries path.
    $ export LD_LIBRARY_PATH=/path/to/SEGGER/JLink:$LD_LIBRARY_PATH
