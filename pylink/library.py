@@ -18,6 +18,7 @@ import ctypes
 import ctypes.util as ctypes_util
 import os
 import platform
+import re
 import sys
 import tempfile
 
@@ -279,7 +280,7 @@ class Library(object):
                     if f.startswith(dll):
                         yield os.path.join(dir_path, f)
 
-    def __init__(self, dllpath=None, use_tmpcpy=True):
+    def __init__(self, dllpath=None, use_tmpcpy=None):
         """Initializes an instance of a ``Library``.
 
         Loads the default J-Link DLL if ``dllpath`` is ``None``, otherwise
@@ -288,7 +289,8 @@ class Library(object):
         Args:
           self (Library): the ``Library`` instance
           dllpath (str): the DLL to load into the library
-          use_tmpcpy (bool): True to load a temporary copy of J-Link DLL
+          use_tmpcpy (Optional[bool]): ``True`` to load a temporary copy of
+            J-Link DLL, ``None`` to dynamically decide based on DLL version.
 
         Returns:
           ``None``
@@ -410,6 +412,11 @@ class Library(object):
 
         lib_path = self._path
 
+        if self._use_tmpcpy is None:
+            # Fall back to ``True`` if version lookup failed (old pylink default)
+            maybe_version = self.dll_version()
+            self._use_tmpcpy = (maybe_version <= 6.10) if maybe_version else True
+
         if self._use_tmpcpy:
             # Copy the J-Link DLL to a temporary file.  This will be cleaned up the
             # next time we load a DLL using this library or if this library is
@@ -499,6 +506,22 @@ class Library(object):
           A ``ctypes`` DLL instance if one was loaded, otherwise ``None``.
         """
         return self._lib
+
+    def dll_version(self):
+        """Returns the DLL version number.
+
+        Args:
+          self (Library): the ``Library`` instance
+
+        Returns:
+            DLL version number (e.g. 7.96) or ``None`` if parsing fails.
+        """
+        if self._path is not None:
+            match = re.search(r"JLink(?:_Linux)?_V(\d+)", self._path)
+            if match:
+                num_part = match.group(1)
+                return float(f"{num_part[0]}.{num_part[1:]}")
+        return None
 
 
 class JLinkarmDlInfo:
