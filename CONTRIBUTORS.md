@@ -24,3 +24,4 @@ In the order of appearance in the commit history:
 | Dominic Shelton           | @frogamic          |
 | Fletcher D                | @FletcherD         |
 | G Towers                  | @gtowers-dukosi    |
+| Ben Brown                 | @bbrown1867        |

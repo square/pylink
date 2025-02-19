@@ -1124,6 +1124,18 @@ class TestLibrary(unittest.TestCase):
         self.assertEqual(2, mock_find_library.call_count)
         self.assertEqual(2, mock_load_library.call_count)
 
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    def test_dll_version_linux(self, _mock_load_library):
+        path = "/opt/SEGGER/JLink_Linux_V684b_x86_64/libjlinkarm.so"
+        lib = library.Library(path)
+        self.assertEqual(lib.dll_version(), 6.84)
+
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    def test_dll_version_mac(self, _mock_load_library):
+        path = "/Applications/SEGGER/JLink_V796n/libjlinkarm.dylib"
+        lib = library.Library(path)
+        self.assertEqual(lib.dll_version(), 7.96)
+
 
 if __name__ == '__main__':
     unittest.main()

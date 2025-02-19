@@ -247,7 +247,7 @@ class JLink(object):
         return _interface_required
 
     def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None,
-                 serial_no=None, ip_addr=None, open_tunnel=False, use_tmpcpy=True):
+                 serial_no=None, ip_addr=None, open_tunnel=False, use_tmpcpy=None):
         """Initializes the J-Link interface object.
 
         Note:
@@ -279,7 +279,8 @@ class JLink(object):
             of ``open`` method.
             If ``None``, the driver will not be opened automatically
             (however, it is still closed when exiting the context manager).
-          use_tmpcpy (bool): True to load a temporary copy of J-Link DLL
+          use_tmpcpy (Optional[bool]): ``True`` to load a temporary copy of
+            J-Link DLL, ``None`` to dynamically decide based on DLL version.
 
         Returns:
           ``None``
