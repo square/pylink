@@ -117,7 +117,7 @@ $ make html
 First install the development requirements by running:
 
 ```
-$ pip install -r requirements.txt
+pip install -e ".[dev,test]"
 ```
 
 After you've installed the requirements, decide on the development work you

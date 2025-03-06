@@ -11,24 +11,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-20.04, macos-latest ]
+        os: [ ubuntu-latest, macos-latest ]
         python-version: [ 3.8, 3.9 ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version}}
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -e ".[dev,test]"
       - name: Lint with PyCodeStyle
         run: |
           pycodestyle .
       - name: Run Unit Tests
         run: |
-          python setup.py test
+          python -m unittest
       - name: Build a Wheel
         run: |
           python setup.py bdist_wheel
