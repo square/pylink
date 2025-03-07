@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.5.0]
+### Changed
+- @bbrown1867: Temporary library copying is now determined dynamically based on
+  the version of the SDK in use. Previously, the default behaviour would always
+  copy the library, which would fail if custom devices and functions were in
+  use via XML files in the same directory as the SDK.
+
 ## [1.4.0]
 ### Added
 - @hkpeprah: Added Power Trace APIs.
