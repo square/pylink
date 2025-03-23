@@ -29,6 +29,7 @@ import itertools
 import logging
 import math
 import operator
+import os
 import sys
 import time
 import six
@@ -827,7 +828,7 @@ class JLink(object):
         Raises:
           JLinkException: if the path specified is invalid.
         """
-        res = self._dll.JLINKARM_SetLogFile(file_path.encode())
+        res = self._dll.JLINKARM_SetLogFile(os.fsencode(file_path))
         if res:
             raise errors.JLinkException(res)
 
@@ -2271,7 +2272,7 @@ class JLink(object):
             pass
 
         # Program the target.
-        bytes_flashed = self._dll.JLINK_DownloadFile(path.encode(), addr)
+        bytes_flashed = self._dll.JLINK_DownloadFile(os.fsencode(path), addr)
         if bytes_flashed < 0:
             raise errors.JLinkFlashException(bytes_flashed)
 
