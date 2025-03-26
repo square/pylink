@@ -2565,7 +2565,8 @@ class JLink(object):
 
         return list(buf)[:num_reasons]
 
-    @connection_required
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
     def jtag_create_clock(self):
         """Creates a JTAG clock on TCK.
 
@@ -2580,7 +2581,8 @@ class JLink(object):
         """
         return self._dll.JLINKARM_Clock()
 
-    @connection_required
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
     def jtag_send(self, tms, tdi, num_bits):
         """Sends data via JTAG.
 
@@ -2612,7 +2614,8 @@ class JLink(object):
         self._dll.JLINKARM_StoreBits(tms, tdi, num_bits)
         return None
 
-    @connection_required
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
     def jtag_flush(self):
         """Flushes the internal JTAG buffer.
 
