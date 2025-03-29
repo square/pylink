@@ -25,3 +25,4 @@ In the order of appearance in the commit history:
 | Fletcher D                | @FletcherD         |
 | G Towers                  | @gtowers-dukosi    |
 | Ben Brown                 | @bbrown1867        |
+| Karl Sigurdsson           | @karl-rainlabs     |

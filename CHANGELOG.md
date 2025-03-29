@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.5.1]
+### Fixed
+- @karl-rainlabs: Fixed incorrect decorator around JTAG APIs. Previously, the
+  APIs required a connection, but now can be used prior to connection.
+
 ## [1.5.0]
 ### Changed
 - @bbrown1867: Temporary library copying is now determined dynamically based on
