@@ -35,7 +35,7 @@ your operating system:
 
 #### On Mac
 
-```bash
+```
 # Option A: Copy the library to your libraries directory.
 $ cp libjlinkarm.dylib /usr/local/lib/
 
@@ -58,7 +58,7 @@ Alternatively, add the SEGGER J-Link directory to your `%PATH%`.
 
 #### On Linux
 
-```bash
+```
 # Option A: Copy the library to your libraries directory.
 $ cp libjlinkarm.so /usr/local/lib/
 
@@ -69,7 +69,7 @@ $ export LD_LIBRARY_PATH=/path/to/SEGGER/JLink:$LD_LIBRARY_PATH
 
 ## Usage
 
-```python
+```
 import pylink
 
 if __name__ == '__main__':
@@ -98,9 +98,9 @@ out our [troubleshooting](./TROUBLESHOOTING.md) document.
 
 Documentation follows the
 [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html),
-and uses [`Sphinx`](http://www.sphinx-doc.org/en/stable/) documentation
+and uses [Sphinx](http://www.sphinx-doc.org/en/stable/) documentation
 generator with the
-[`Napoleon`](http://www.sphinx-doc.org/en/stable/ext/napoleon.html) extension
+[Napoleon](http://www.sphinx-doc.org/en/stable/ext/napoleon.html) extension
 to provide Google style Python support.  To generate the documentation, these
 packages will need to be installed (they are included in the provided
 `requirements.txt` file).  With these packages installed, you can generate the
@@ -117,7 +117,7 @@ $ make html
 First install the development requirements by running:
 
 ```
-$ pip install -r requirements.txt
+pip install -e ".[dev,test]"
 ```
 
 After you've installed the requirements, decide on the development work you
@@ -138,7 +138,7 @@ $ python setup.py bddtest
 ```
 
 There are two types of tests: `functional` and `unit`.  Information about both
-can be found under [`tests/README.md`](tests/README.md).
+can be found under [tests/README.md](tests/README.md).
 
 
 ### Coverage

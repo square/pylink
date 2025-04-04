@@ -5,6 +5,234 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.5.1]
+### Fixed
+- @karl-rainlabs: Fixed incorrect decorator around JTAG APIs. Previously, the
+  APIs required a connection, but now can be used prior to connection.
+
+## [1.5.0]
+### Changed
+- @bbrown1867: Temporary library copying is now determined dynamically based on
+  the version of the SDK in use. Previously, the default behaviour would always
+  copy the library, which would fail if custom devices and functions were in
+  use via XML files in the same directory as the SDK.
+
+## [1.4.0]
+### Added
+- @hkpeprah: Added Power Trace APIs.
+
+## [1.3.0]
+### Added
+- @gtowers-dukosi: Added API method `set_script_file()` to specify a Script
+  File to be loaded.
+
+## [1.2.1]
+### Fixed
+- @FletcherD: Fixed a bug in `load_library()` on Linux where a 32-bit library
+  was being incorrectly loaded on ARM64-based Linux machines.
+
+### Changed
+- @frogamic: Unit tests are now compatible with Python 3.12.
+
+## [1.2.0]
+### Changed
+- @cpattenden-sq: Fixed bug in `flash()` where return value was being checked
+  against a `void` function; would lead to exceptions being raised
+  unexpectedly.
+
+## [1.1.0]
+### Added
+- @chanqueo: Added `use_tmpcpy` field to constructor for `JLink` and `Library`
+  instances to workaround temporary files not been cleaned up; a future patch
+  will change the default behaviour based on the version of the SDK. By
+  default, temporary files are used for the SDK binary.
+
+### Changed
+- @curtishx: Changed decorator on `set_reset_strategy()` from
+  `@connection_required` to `@open_required`.
+
+### Removed
+- @avi-jois: Removed dependency on `future`.
+
+## [1.0.0]
+
+### Changed
+- @boraozgen: Fixed installation error that prevented `setup.py install` when
+  `six` was not installed.
+- @denravonska: Changed `.flash()` to no longer erase chip on flash; users will
+  now need to ensure they call `.erase()` prior to flashing a non-erased region
+  of flash.
+
+## [0.14.3]
+
+### Changed
+- @hkpeprah: Add `tests` to source distribution.
+
+## [0.14.2]
+
+### Changed
+- @dottspina: Revert `JLINK_SDK_NAME` change.
+
+## [0.14.1]
+
+### Added
+- @hkpeprah: Added `tests` to the published `sdist`.
+
+## [0.14.0]
+
+### Changed
+- @dottspina: Changed behaviour of `load_library()` on Linux-based platforms to
+  resolve sonames; fixes an issue where `find_library()` would fail, and the
+  underlying platform-specific methods would not return the path to the soname
+  file.
+
+## [0.13.0]
+
+### Added
+- @hkpeprah: Added `tests` to `sdist` distribution.
+- @hkpeprah: Made `pylink-swv` available in package.
+
+### Changed
+
+- @hkpeprah: Fixed issue where device connect would happen twice as reported
+  by @chanqueo in ISSUE-113.
+- @hkpeprah: Renamed `swv -> pylink-swv`.
+
+## [0.12.0]
+
+### Changed
+
+- @kylemanna: Fixed error where `argparse` would fail on Python3 when no
+  arguments were passed to the CLI.
+- @hkpeprah: Publish both `sdist` and `bdist_wheel`.
+- @mhummels: Switch pin functions from `connection_required() -> open_required()`
+  to support being called without connection to target.
+
+## [0.11.1]
+
+### Added
+
+- @johannesneyer: Add RTT example as command-line script 'pylink-rtt'.
+
+## [0.10.1]
+
+### Changed
+
+- @jsiverskog: Updated default logging code to pass `errors='repalce'` when
+  decoding the string from the library; fixes `UnicodeError`s causing an exit.
+
+## [0.10.0]
+
+### Changed
+
+- @kettenbach-it: Changed `disable_dialog_boxes()` to disable flash info
+  windows when called (programming pop-ups).  Updated `enable_dialog_boxes()`
+  to show flash info windows when called.
+
+## [0.9.0]
+
+### Added
+
+- @sauci: Added method, `set_log_file`, to set logging file for logs; redirects
+  logs from STDOUT / STDERR to log file.
+
+## [0.8.2]
+
+### Changed
+
+- @Gargy007: Changed decorator for toggling the reset pin, `set_reset_pin_high`
+  and `set_reset_pin_low` to `open_required()` instead of
+  `connection_required()` to allow toggling the reset pin when the debugger is
+  attached, but the target isn't connected.
+
+## [0.8.1]
+
+### Changed
+
+- @RisinT96: Changed behaviour for getting the target device during `connect()`
+  to use `get_device_index()` instead of iterating manually through each
+  supported device; reduces speed of `connect()` from several seconds to sub
+  one second.
+
+## [0.8.0]
+
+### Changed
+
+- @Gargy007: Changed decorator on coresight methods to new method
+  `coresight_configuration_required()` instead of `connection_required()` to
+  enable use of CoreSight methods without requiring a connection.
+
+## [0.7.0]
+
+### Changed
+
+- @cy18: Reduced memory / CPU usage of `rtt_read()` by slicing buffer before
+  converting to list in return value of `rtt_read()`.
+- @twam: Changed maximum JTAG speed from 12MHz to 50MHz.
+- @thetic: Fixed issue where `tempfile.tempdir` could be `None` when creating a
+  path for the library copy; switched to using `tempfile.gettempdir()` which
+  populates the cached variable if unset.
+
+## [0.6.1]
+
+### Changed
+
+- @Moral-ecomo: Fixed issue where unsecure hook was unbounded due to not being
+  bound to the class instance.
+
+## [0.6.0]
+
+### Added
+
+- @hkpeprah: Added 'rtt_get_buf_descriptor()', and 'rtt_get_status()' with
+  associated structures for describing an RTT buffer, and the status of an
+  RTT control block.
+
+### Changed
+
+- @hkpeprah: Changed 'rtt_start()' to take optional block address to specify
+  where RTT block starts.
+
+## [0.5.0]
+
+### Changed
+
+- @rjshade: Changed `.open()` and `.close()` to operate using a reference
+  count; DLL is now only closed if open reference count is zero.
+
+## [0.4.0]
+
+### Added
+
+- @sauci: Added CP15 API: `cp15_present`, `cp15_register_read`, and
+  `cp15_register_write`.
+
+## [0.3.0]
+
+### Changed
+
+- @charliebruce: Fix for 'VTarget' in hardware status; incorrectly assigned to
+  32-bit instead of 16-bit integer.
+- @charliebruce: Fix for documentation for 'VTarget' in hardware status;
+  incorrectly displayed mA instead of mV.
+- @sauci: Changed register methods ('register_read()',
+  'register_read_multiple()', 'register_write()', and
+  'register_write_multiple()') to alternatively take regsiter names instead of
+  just register indices.
+
+## [0.2.0]
+
+### Added
+
+- @bojanpotocnik: Implemented context manager to enable automatic debugger
+  connection opening when context is entered, and connection closed when
+  exited.
+
+### Changed
+
+- @bojanpotocnik: Implemented finalizer method '_finalize()' to tear down
+  connection on destructor.
+
 ## [0.1.3]
 
 ### Changed

@@ -31,6 +31,7 @@ import math
 import operator
 import sys
 import time
+import six
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ class JLink(object):
     MAX_NUM_CPU_REGISTERS = 256
 
     # Maximum speed (in kHz) that can be passed to `set_speed()`.
-    MAX_JTAG_SPEED = 12000
+    MAX_JTAG_SPEED = 50000
 
     # Minimum speed (in kHz) that can be passed to `set_speed()`.
     MIN_JTAG_SPEED = 5
@@ -172,6 +173,37 @@ class JLink(object):
             return func(self, *args, **kwargs)
         return wrapper
 
+    def coresight_configuration_required(func):
+        """Decorator to specify that a coresight configuration or target connection
+        is required in order for the given method to be used.
+
+        Args:
+          func (function): function being decorated
+
+        Returns:
+          The wrapper function.
+        """
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            """Wrapper function to check that the given ``JLink`` has been
+            connected to a target or at least the coresight configuration has been done.
+
+            Args:
+              self (JLink): the ``JLink`` instance
+              args: list of arguments to pass to the wrapped function
+              kwargs: key-word arguments dict to pass to the wrapped function
+
+            Returns:
+              The return value of the wrapped function.
+
+            Raises:
+              JLinkException: if the JLink's target is not connected.
+            """
+            if not self.target_connected() and not self._coresight_configured:
+                raise errors.JLinkException('Target is not connected neither coresight is not configured.')
+            return func(self, *args, **kwargs)
+        return wrapper
+
     def interface_required(interface):
         """Decorator to specify that a particular interface type is required
         for the given method to be used.
@@ -214,7 +246,8 @@ class JLink(object):
             return wrapper
         return _interface_required
 
-    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None):
+    def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None,
+                 serial_no=None, ip_addr=None, open_tunnel=False, use_tmpcpy=None):
         """Initializes the J-Link interface object.
 
         Note:
@@ -236,6 +269,18 @@ class JLink(object):
             default this his writes to standard error
           unsecure_hook (function): function to be called for the unsecure
             dialog
+          serial_no (int): serial number of the J-Link
+          ip_addr (str): IP address and port of the J-Link
+            (e.g. 192.168.1.1:80)
+          open_tunnel (bool, None): If ``False`` (default), the ``open``
+            method will be called when entering the context manager using
+            the ``serial_no`` and ``ip_addr`` provided here.
+            If ``True`` ``open_tunnel`` method will be called instead
+            of ``open`` method.
+            If ``None``, the driver will not be opened automatically
+            (however, it is still closed when exiting the context manager).
+          use_tmpcpy (Optional[bool]): ``True`` to load a temporary copy of
+            J-Link DLL, ``None`` to dynamically decide based on DLL version.
 
         Returns:
           ``None``
@@ -246,7 +291,7 @@ class JLink(object):
         self._initialized = False
 
         if lib is None:
-            lib = library.Library()
+            lib = library.Library(use_tmpcpy=use_tmpcpy)
 
         if lib.dll() is None:
             raise TypeError('Expected to be given a valid DLL.')
@@ -263,21 +308,99 @@ class JLink(object):
         self._lock = None
         self._device = None
 
+        # Track the number of .open() calls to avoid multiple calls to
+        # JLINKARM_Close, which can cause a crash.
+        self._open_refcount = 0
+
+        self._coresight_configured = False
+
         # Bind Types for function calls.
         self._dll.JLINKARM_OpenEx.restype = ctypes.POINTER(ctypes.c_char)
         self._dll.JLINKARM_GetCompileDateTime.restype = ctypes.POINTER(ctypes.c_char)
         self._dll.JLINKARM_GetRegisterName.restype = ctypes.POINTER(ctypes.c_char)
 
-        self.error_handler = lambda s: (error or logger.error)(s.decode())
-        self.warning_handler = lambda s: (warn or logger.warning)(s.decode())
-        self.log_handler = lambda s: (log or logger.info)(s.decode())
-        self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode())
+        self.error_handler = lambda s: (error or logger.error)(s.decode(errors='replace'))
+        self.warning_handler = lambda s: (warn or logger.warning)(s.decode(errors='replace'))
+        self.log_handler = lambda s: (log or logger.info)(s.decode(errors='replace'))
+        self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode(errors='replace'))
+
+        # Parameters used for open() in context manager
+        self.__serial_no = serial_no
+        self.__ip_addr = ip_addr
+        self.__open_tunnel = open_tunnel
 
         self._initialized = True
 
     def __del__(self):
         """Destructor for the ``JLink`` instance.  Closes the J-Link connection
         if one exists.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          ``None``
+        """
+        # weakref callbacks are rather low level, and working out how to use
+        # them correctly requires a bit of head scratching.  One must find
+        # somewhere to store the weakref till after the referent is dead, and
+        # without accidentally keeping the referent alive.  Then one must
+        # ensure that the callback frees the weakref (without leaving any
+        # remnant ref-cycles).
+        #
+        # When it is an option, using a __del__ method is far less hassle.
+        #
+        # Source: https://bugs.python.org/issue15528
+        self._finalize()
+
+    def __enter__(self):
+        """Connects to the J-Link emulator (defaults to USB) using context manager.
+
+        Parameters passed to __init__ are used for open() function.
+
+        Returns:
+          the ``JLink`` instance
+
+        Raises:
+          JLinkException: if fails to open (i.e. if device is unplugged)
+          TypeError: if ``serial_no`` is present, but not ``int`` coercible.
+          AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
+        """
+        if self.__open_tunnel is False:
+            self.open(serial_no=self.__serial_no, ip_addr=self.__ip_addr)
+        elif self.__open_tunnel is True:
+            self.open_tunnel(serial_no=self.__serial_no)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Closes the JLink connection on exit of the context manager.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          exc_type (BaseExceptionType, None): the exception class, if any
+            raised inside the context manager
+          exc_val (BaseException, None): the exception object, if any raised
+            inside the context manager
+          exc_tb (TracebackType, None): the exception traceback, if any
+            exception was raised inside the context manager.
+
+        Returns:
+          ``True`` if exception raised inside the context manager was handled
+            and shall be suppressed (not propagated), ``None`` otherwise.
+        """
+        self._finalize()
+        # Do not return anything to pass on all other exceptions.
+
+    def _finalize(self):
+        """Finalizer ("destructor") for the ``JLink`` instance.
+
+        Stops the SWO if enabled and closes the J-Link connection if one
+        exists.
+        Called when exiting the context manager or when this object is
+        destructed (garbage collected).
 
         Args:
           self (JLink): the ``JLink`` instance
@@ -292,6 +415,26 @@ class JLink(object):
 
             if self.opened():
                 self.close()
+
+    def _get_register_index_from_name(self, register):
+        """
+        Converts a register name to a register index
+
+        Args:
+            self (JLink): the ``JLink`` instance
+            register (str): the register name
+
+        Returns:
+          ``int``
+        """
+        regs = list(self.register_name(idx) for idx in self.register_list())
+        if isinstance(register, six.string_types):
+            try:
+                result = regs.index(register)
+            except ValueError:
+                error_message = "No register found matching name: {}. (available registers: {})"
+                raise errors.JLinkException(error_message.format(register, ', '.join(regs)))
+        return result
 
     def opened(self):
         """Returns whether the DLL is open.
@@ -483,6 +626,26 @@ class JLink(object):
 
         return list(info)[:num_found]
 
+    def get_device_index(self, chip_name):
+        """Finds index of device with chip name
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          chip_name (str): target chip name
+
+        Returns:
+          Index of the device with the matching chip name.
+
+        Raises:
+          ``JLinkException``: if chip is unsupported.
+        """
+        index = self._dll.JLINKARM_DEVICE_GetIndex(chip_name.encode('ascii'))
+
+        if index <= 0:
+            raise errors.JLinkException('Unsupported device selected.')
+
+        return index
+
     def num_supported_devices(self):
         """Returns the number of devices that are supported by the opened
         J-Link DLL.
@@ -535,6 +698,9 @@ class JLink(object):
           TypeError: if ``serial_no`` is present, but not ``int`` coercible.
           AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
         """
+        if self._open_refcount > 0:
+            self._open_refcount += 1
+            return None
 
         # For some reason, the J-Link driver complains if this isn't called
         # first (may have something to do with it trying to establish a
@@ -585,9 +751,10 @@ class JLink(object):
         # on versions greater than V4.98a.
         unsecure_hook = self._unsecure_hook
         if unsecure_hook is not None and hasattr(self._dll, 'JLINK_SetHookUnsecureDialog'):
-            func = enums.JLinkFunctions.UNSECURE_HOOK_PROTOTYPE(unsecure_hook)
-            self._dll.JLINK_SetHookUnsecureDialog(func)
+            self.unsecure_hook = enums.JLinkFunctions.UNSECURE_HOOK_PROTOTYPE(unsecure_hook)
+            self._dll.JLINK_SetHookUnsecureDialog(self.unsecure_hook)
 
+        self._open_refcount = 1
         return None
 
     def open_tunnel(self, serial_no, port=19020):
@@ -615,6 +782,16 @@ class JLink(object):
         Raises:
           JLinkException: if there is no connected JLink.
         """
+        if self._open_refcount == 0:
+            # Do nothing if .open() has not been called.
+            return None
+
+        self._open_refcount -= 1
+        if self._open_refcount > 0:
+            return None
+
+        self._coresight_configured = False
+
         self._dll.JLINKARM_Close()
 
         if self._lock is not None:
@@ -634,6 +811,46 @@ class JLink(object):
         """
         res = self._dll.JLINKARM_Test()
         return (res == 0)
+
+    @open_required
+    def set_log_file(self, file_path):
+        """Sets the log file output path.
+        see https://wiki.segger.com/Enable_J-Link_log_file
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          file_path (str): the file path where the log file will be stored
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: if the path specified is invalid.
+        """
+        res = self._dll.JLINKARM_SetLogFile(file_path.encode())
+        if res:
+            raise errors.JLinkException(res)
+
+    @open_required
+    def set_script_file(self, file_path):
+        """Sets the custom `Script File`_ to use.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          file_path (str): file path to the JLink script file to be used
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: if the path specified is invalid.
+
+        .. _Script File:
+          https://wiki.segger.com/J-Link_script_files
+        """
+        res = self.exec_command('scriptfile = %s' % file_path)
+        if res:
+            raise errors.JLinkException('Failed to set JLink Script File: %r' % file_path)
 
     @open_required
     def invalidate_firmware(self):
@@ -762,9 +979,6 @@ class JLink(object):
         """Enables showing dialog boxes on certain methods.
 
         Note:
-          Dialog boxes only appear on Windows platforms.
-
-        Note:
           This can be used for batch or automized test running.
 
         Args:
@@ -774,13 +988,13 @@ class JLink(object):
           ``None``
         """
         self.exec_command('SetBatchMode = 0')
+        self.exec_command("HideDeviceSelection = 0")
+        self.exec_command("EnableInfoWinFlashDL")
+        self.exec_command("EnableInfoWinFlashBPs")
 
     @minimum_required('5.02')
     def disable_dialog_boxes(self):
         """Disables showing dialog boxes on certain methods.
-
-        Note:
-          Dialog boxes only appear on Windows platforms.
 
         Warning:
           This has the effect of also silencing dialog boxes that appear when
@@ -799,6 +1013,13 @@ class JLink(object):
         self.exec_command('SilentUpdateFW')
         self.exec_command('SuppressInfoUpdateFW')
         self.exec_command('SetBatchMode = 1')
+
+        # SuppressControlPanel
+        self.exec_command("HideDeviceSelection = 1")
+        self.exec_command("SuppressControlPanel")
+        # Hide Flash Windows
+        self.exec_command("DisableInfoWinFlashDL")
+        self.exec_command("DisableInfoWinFlashBPs")
 
     @open_required
     def jtag_configure(self, instr_regs=0, data_bits=0):
@@ -871,6 +1092,8 @@ class JLink(object):
             if res < 0:
                 raise errors.JLinkException(res)
 
+            self._coresight_configured = True
+
             return None
 
         # JTAG requires more setup than SWD.
@@ -883,6 +1106,8 @@ class JLink(object):
         res = self._dll.JLINKARM_CORESIGHT_Configure(config_string.encode())
         if res < 0:
             raise errors.JLinkException(res)
+
+        self._coresight_configured = True
 
         return None
 
@@ -907,6 +1132,12 @@ class JLink(object):
         if verbose:
             self.exec_command('EnableRemarks = 1')
 
+        # Determine which device we are.  This is essential for using methods
+        # like 'unlock' or 'lock'.
+        index = self.get_device_index(chip_name)
+
+        self._device = self.supported_device(index)
+
         # This is weird but is currently the only way to specify what the
         # target is to the J-Link.
         self.exec_command('Device = %s' % chip_name)
@@ -920,25 +1151,19 @@ class JLink(object):
         else:
             self.set_speed(speed)
 
-        result = self._dll.JLINKARM_Connect()
-        if result < 0:
-            raise errors.JLinkException(result)
+        # When we specify 'Device =', we will trigger an auto-connect to the
+        # target under debugging. If the 'exec_command' failed, then we want
+        # to force the connect here.
+        if not self.target_connected():
+            result = self._dll.JLINKARM_Connect()
+            if result < 0:
+                raise errors.JLinkException(result)
 
         try:
             # Issue a no-op command after connect. This has to be in a try-catch.
             self.halted()
         except errors.JLinkException:
             pass
-
-        # Determine which device we are.  This is essential for using methods
-        # like 'unlock' or 'lock'.
-        for index in range(self.num_supported_devices()):
-            device = self.supported_device(index)
-            if device.name.lower() == chip_name.lower():
-                self._device = device
-                break
-        else:
-            raise errors.JLinkException('Unsupported device was connected to.')
 
         return None
 
@@ -1759,7 +1984,7 @@ class JLink(object):
         """
         return self.set_trace_source(enums.JLinkTraceSource.ETM)
 
-    @connection_required
+    @open_required
     def set_reset_strategy(self, strategy):
         """Sets the reset strategy for the target.
 
@@ -1774,7 +1999,7 @@ class JLink(object):
         """
         return self._dll.JLINKARM_SetResetType(strategy)
 
-    @connection_required
+    @open_required
     def set_reset_pin_high(self):
         """Sets the reset pin high.
 
@@ -1787,7 +2012,7 @@ class JLink(object):
         self._dll.JLINKARM_SetRESET()
         return None
 
-    @connection_required
+    @open_required
     def set_reset_pin_low(self):
         """Sets the reset pin low.
 
@@ -1800,7 +2025,7 @@ class JLink(object):
         self._dll.JLINKARM_ClrRESET()
         return None
 
-    @connection_required
+    @open_required
     def set_tck_pin_high(self):
         """Sets the TCK pin to the high value (1).
 
@@ -1818,7 +2043,7 @@ class JLink(object):
             raise errors.JLinkException('Feature not supported.')
         return None
 
-    @connection_required
+    @open_required
     def set_tck_pin_low(self):
         """Sets the TCK pin to the low value (0).
 
@@ -1836,7 +2061,7 @@ class JLink(object):
             raise errors.JLinkException('Feature not supported.')
         return None
 
-    @connection_required
+    @open_required
     def set_tdi_pin_high(self):
         """Sets the test data input to logical ``1``.
 
@@ -1848,7 +2073,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_SetTDI()
 
-    @connection_required
+    @open_required
     def set_tdi_pin_low(self):
         """Clears the test data input.
 
@@ -1862,7 +2087,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_ClrTDI()
 
-    @connection_required
+    @open_required
     def set_tms_pin_high(self):
         """Sets the test mode select to logical ``1``.
 
@@ -1874,7 +2099,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_SetTMS()
 
-    @connection_required
+    @open_required
     def set_tms_pin_low(self):
         """Clears the test mode select.
 
@@ -1888,7 +2113,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_ClrTMS()
 
-    @connection_required
+    @open_required
     def set_trst_pin_high(self):
         """Sets the TRST pin to high (``1``).
 
@@ -1902,7 +2127,7 @@ class JLink(object):
         """
         self._dll.JLINKARM_SetTRST()
 
-    @connection_required
+    @open_required
     def set_trst_pin_low(self):
         """Sets the TRST pin to low (``0``).
 
@@ -1955,7 +2180,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          data (list): list of bytes to write to flash
+          data (list|bytes): list or byte object of bytes to write to flash
           addr (int): start address on flash which to write the data
           on_progress (function): callback to be triggered on flash progress
           power_on (boolean): whether to power the target before flashing
@@ -1990,9 +2215,19 @@ class JLink(object):
         except errors.JLinkException:
             pass
 
-        res = self.flash_write(addr, data, flags=flags)
+        # Perform read-modify-write operation.
+        self._dll.JLINKARM_BeginDownload(flags=flags)
 
-        return res
+        if isinstance(data, list):
+            data = bytes(data)
+
+        bytes_flashed = self._dll.JLINKARM_WriteMem(addr, len(data), data)
+
+        res = self._dll.JLINKARM_EndDownload()
+        if res < 0:
+            raise errors.JLinkEraseException(res)
+
+        return bytes_flashed
 
     @connection_required
     def flash_file(self, path, addr, on_progress=None, power_on=False):
@@ -2330,7 +2565,8 @@ class JLink(object):
 
         return list(buf)[:num_reasons]
 
-    @connection_required
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
     def jtag_create_clock(self):
         """Creates a JTAG clock on TCK.
 
@@ -2345,7 +2581,8 @@ class JLink(object):
         """
         return self._dll.JLINKARM_Clock()
 
-    @connection_required
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
     def jtag_send(self, tms, tdi, num_bits):
         """Sends data via JTAG.
 
@@ -2377,7 +2614,8 @@ class JLink(object):
         self._dll.JLINKARM_StoreBits(tms, tdi, num_bits)
         return None
 
-    @connection_required
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
     def jtag_flush(self):
         """Flushes the internal JTAG buffer.
 
@@ -3043,11 +3281,14 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          register_index (int): the register to read
+          register_index (int/str): the register to read
 
         Returns:
           The value stored in the given register.
         """
+        # TODO: rename 'register_index' to 'register'
+        if isinstance(register_index, six.string_types):
+            register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
     @connection_required
@@ -3066,7 +3307,12 @@ class JLink(object):
         Raises:
           JLinkException: if a given register is invalid or an error occurs.
         """
+        # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(0)
 
@@ -3090,7 +3336,7 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          reg_index (int): the ARM register to write to
+          reg_index (int/str): the ARM register to write to
           value (int): the value to write to the register
 
         Returns:
@@ -3099,6 +3345,9 @@ class JLink(object):
         Raises:
           JLinkException: on write error.
         """
+        # TODO: rename 'reg_index' to 'register'
+        if isinstance(reg_index, six.string_types):
+            reg_index = self._get_register_index_from_name(reg_index)
         res = self._dll.JLINKARM_WriteReg(reg_index, value)
         if res != 0:
             raise errors.JLinkException('Error writing to register %d' % reg_index)
@@ -3124,10 +3373,15 @@ class JLink(object):
           ValueError: if ``len(register_indices) != len(values)``
           JLinkException: if a register could not be written to or on error
         """
+        # TODO: rename 'register_indices' to 'registers'
+        register_indices = register_indices[:]
         if len(register_indices) != len(values):
             raise ValueError('Must be an equal number of registers and values')
 
         num_regs = len(register_indices)
+        for idx, indice in enumerate(register_indices):
+            if isinstance(indice, six.string_types):
+                register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(*values)
 
@@ -3224,7 +3478,7 @@ class JLink(object):
         self._dll.JLINKARM_ETM_WriteReg(int(register_index), int(value), int(delay))
         return None
 
-    @connection_required
+    @coresight_configuration_required
     def coresight_read(self, reg, ap=True):
         """Reads an Ap/DP register on a CoreSight DAP.
 
@@ -3253,7 +3507,7 @@ class JLink(object):
 
         return data.value
 
-    @connection_required
+    @coresight_configuration_required
     def coresight_write(self, reg, data, ap=True):
         """Writes an Ap/DP register on a CoreSight DAP.
 
@@ -4830,30 +5084,65 @@ class JLink(object):
 ###############################################################################
 
     @open_required
-    def rtt_start(self):
+    def rtt_start(self, block_address=None):
         """Starts RTT processing, including background read of target data.
+
         Args:
           self (JLink): the ``JLink`` instance
+          block_address (int): optional configuration address for the RTT block
+
+        Returns:
+          ``None``
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
-        self.rtt_control(enums.JLinkRTTCommand.START, None)
+        config = None
+        if block_address is not None:
+            config = structs.JLinkRTTerminalStart()
+            config.ConfigBlockAddress = block_address
+        self.rtt_control(enums.JLinkRTTCommand.START, config)
 
     @open_required
     def rtt_stop(self):
         """Stops RTT on the J-Link and host side.
+
         Args:
           self (JLink): the ``JLink`` instance
 
+        Returns:
+          ``None``
+
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
         self.rtt_control(enums.JLinkRTTCommand.STOP, None)
 
     @open_required
+    def rtt_get_buf_descriptor(self, buffer_index, up):
+        """After starting RTT, get the descriptor for an RTT control block.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): the index of the buffer to get.
+          up (bool): ``True`` if buffer is an UP buffer, otherwise ``False``.
+
+        Returns:
+          ``JLinkRTTerminalBufDesc`` describing the buffer.
+
+        Raises:
+          JLinkRTTException: if the RTT control block has not yet been found.
+        """
+        desc = structs.JLinkRTTerminalBufDesc()
+        desc.BufferIndex = buffer_index
+        desc.Direction = 0 if up else 1
+        self.rtt_control(enums.JLinkRTTCommand.GETDESC, desc)
+        return desc
+
+    @open_required
     def rtt_get_num_up_buffers(self):
         """After starting RTT, get the current number of up buffers.
+
         Args:
           self (JLink): the ``JLink`` instance
 
@@ -4861,7 +5150,7 @@ class JLink(object):
           The number of configured up buffers on the target.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
         cmd = enums.JLinkRTTCommand.GETNUMBUF
         dir = ctypes.c_int(enums.JLinkRTTDirection.UP)
@@ -4870,6 +5159,7 @@ class JLink(object):
     @open_required
     def rtt_get_num_down_buffers(self):
         """After starting RTT, get the current number of down buffers.
+
         Args:
           self (JLink): the ``JLink`` instance
 
@@ -4877,11 +5167,28 @@ class JLink(object):
           The number of configured down buffers on the target.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
         cmd = enums.JLinkRTTCommand.GETNUMBUF
         dir = ctypes.c_int(enums.JLinkRTTDirection.DOWN)
         return self.rtt_control(cmd, dir)
+
+    @open_required
+    def rtt_get_status(self):
+        """After starting RTT, get the status.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          The status of RTT.
+
+        Raises:
+          JLinkRTTException: on error.
+        """
+        status = structs.JLinkRTTerminalStatus()
+        res = self.rtt_control(enums.JLinkRTTCommand.GETSTAT, status)
+        return status
 
     @open_required
     def rtt_read(self, buffer_index, num_bytes):
@@ -4901,7 +5208,7 @@ class JLink(object):
           A list of bytes read from RTT.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Read call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Read call fails.
         """
         buf = (ctypes.c_ubyte * num_bytes)()
         bytes_read = self._dll.JLINK_RTTERMINAL_Read(buffer_index, buf, num_bytes)
@@ -4909,7 +5216,7 @@ class JLink(object):
         if bytes_read < 0:
             raise errors.JLinkRTTException(bytes_read)
 
-        return list(buf)[:bytes_read]
+        return list(buf[:bytes_read])
 
     @open_required
     def rtt_write(self, buffer_index, data):
@@ -4927,7 +5234,7 @@ class JLink(object):
           The number of bytes successfully written to the RTT buffer.
 
         Raises:
-          JLinkRTTException if the underlying JLINK_RTTERMINAL_Write call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Write call fails.
         """
         buf_size = len(data)
         buf = (ctypes.c_ubyte * buf_size)(*bytearray(data))
@@ -4952,6 +5259,9 @@ class JLink(object):
 
         Returns:
           An integer containing the result of the command.
+
+        Raises:
+          JLinkRTTException: on error.
         """
         config_byref = ctypes.byref(config) if config is not None else None
         res = self._dll.JLINK_RTTERMINAL_Control(command, config_byref)
@@ -4960,3 +5270,287 @@ class JLink(object):
             raise errors.JLinkRTTException(res)
 
         return res
+
+###############################################################################
+#
+# System control Co-Processor (CP15) API
+#
+###############################################################################
+
+    @connection_required
+    def cp15_present(self):
+        """Returns whether target has CP15 co-processor.
+
+        Returns:
+            ``True`` if the target has CP15 co-processor, otherwise ``False``.
+        """
+
+        result = False
+        if self._dll.JLINKARM_CP15_IsPresent() != 0:
+            result = True
+        return result
+
+    @open_required
+    def cp15_register_read(self, cr_n, op_1, cr_m, op_2):
+        """Reads value from specified coprocessor register.
+
+        Args:
+          cr_n (int): CRn value
+          op_1 (int): Op1 value
+          cr_m (int): CRm value
+          op_2 (int): Op2 value
+
+        Returns:
+          An integer containing the value of coprocessor register
+
+        Raises:
+          JLinkException: on error
+        """
+        value = ctypes.c_uint32(0)
+        p_value = ctypes.pointer(value)
+        res = self._dll.JLINKARM_CP15_ReadEx(cr_n, cr_m, op_1, op_2, p_value)
+        if res != 0:
+            raise errors.JLinkException(res)
+        else:
+            value = value.value
+        return value
+
+    @open_required
+    def cp15_register_write(self, cr_n, op_1, cr_m, op_2, value):
+        """Writes value to specified coprocessor register.
+
+        Args:
+          cr_n (int): CRn value
+          op_1 (int): Op1 value
+          cr_m (int): CRm value
+          op_2 (int): Op2 value
+          value (int): value to write
+
+        Returns:
+          An integer containing the result of the command
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINKARM_CP15_WriteEx(cr_n, cr_m, op_1, op_2, value)
+        if res != 0:
+            raise errors.JLinkException(res)
+        return res
+
+###############################################################################
+#
+# Power API
+#
+###############################################################################
+    @open_required
+    def power_trace_configure(self, channels, freq, ref, always):
+        """Configures power tracing.
+
+        This method must be called before calling the other power trace APIs. It
+        is the responsibility of the calling application code to keep track of
+        which channels were enabled in order to determine which trace samples
+        correspond to which channels when read.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          channels (list[int]): list specifying which channels to capture on (0 - 7).
+          freq (int): sampling frequency (in Hertz).
+          ref (JLinkPowerTraceRef): reference value to stored on capture.
+          always (bool): ``True`` to capture data even while CPU halted, otherwise ``False``.
+
+        Returns:
+          The sampling frequency (in Hz) for power sampling.
+
+        Raises:
+          JLinkException: on error
+          ValueError: invalid channels specified
+        """
+        if isinstance(channels, list):
+            channel_mask = 0x00
+            for channel in channels:
+                channel_mask |= (1 << channel)
+        else:
+            channel_mask = channels
+
+        if channel_mask > 0xFF:
+            raise ValueError("Channels must be in range 0 - 7")
+
+        setup = structs.JLinkPowerTraceSetup()
+        setup.ChannelMask = channel_mask
+        setup.SampleFreq = int(freq)
+        setup.RefSelect = int(ref)
+        setup.EnableCond = 0 if always else 1
+
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.SETUP, ctypes.byref(setup), 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+        return res
+
+    @open_required
+    def power_trace_start(self):
+        """Starts capturing data on the channels enabled via ``power_trace_configure()``.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.START, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+
+    @open_required
+    def power_trace_stop(self):
+        """Stops a capture started by ``power_trace_start()``.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.STOP, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+
+    @open_required
+    def power_trace_flush(self):
+        """Flushes all capture data.
+
+        Any data that has not been read by ``power_trace_read()`` is dropped.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.FLUSH, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+
+    @open_required
+    def power_trace_get_channels(self):
+        """Returns a list of the available channels for power tracing.
+
+        This method returns a list of the available channels for power tracing.
+        The application code can use this to determine which channels to
+        enable for tracing.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          List of available channel identifiers.
+
+        Raises:
+          JLinkException: on error
+        """
+        caps = structs.JLinkPowerTraceCaps()
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.GET_CAPS, 0, ctypes.byref(caps))
+        if res < 0:
+            raise errors.JLinkException(res)
+
+        return [i for i in range(0, 32) if (caps.ChannelMask >> i) & 0x1]
+
+    @open_required
+    def power_trace_get_channel_capabilities(self, channels):
+        """Returns the capabilities for the specified channels.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          channels (list[int]): list specifying which channels to get capabilities for.
+
+        Returns:
+          Channel capabilities.
+
+        Raises:
+          JLinkException: on error
+          ValueError: invalid channels specified
+        """
+        if isinstance(channels, list):
+            channel_mask = 0x00
+            for channel in channels:
+                channel_mask |= (1 << channel)
+        else:
+            channel_mask = channels
+
+        if channel_mask > 0xFF:
+            raise ValueError("Channels must be in range 0 - 7")
+
+        channel_caps = structs.JLinkPowerTraceChannelCaps()
+        caps = structs.JLinkPowerTraceCaps()
+        caps.ChannelMask = channel_mask
+
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.GET_CHANNEL_CAPS,
+                                                 ctypes.byref(caps),
+                                                 ctypes.byref(channel_caps))
+        if res < 0:
+            raise errors.JLinkException(res)
+
+        return channel_caps
+
+    @open_required
+    def power_trace_get_num_items(self):
+        """Returns a count of the number of items in the power trace buffer.
+
+        Since each channel is sampled simulataneously, the count of number of
+        items per channel is the return value of this function divided by the
+        number of active channels.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          Number of items in the power trace buffer.
+
+        Raises:
+          JLinkException: on error
+        """
+        res = self._dll.JLINK_POWERTRACE_Control(enums.JLinkPowerTraceCommand.GET_NUM_ITEMS, 0, 0)
+        if res < 0:
+            raise errors.JLinkException(res)
+        return res
+
+    @open_required
+    def power_trace_read(self, num_items=None):
+        """Reads data from the power trace buffer.
+
+        Any read data is flushed from the power trace buffer.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          num_items (int): the number of items to read (if not specified, reads all).
+
+        Returns:
+          List of ``JLinkPowerTraceItem``s.
+
+        Raises:
+          JLinkException: on error
+        """
+        if num_items is None:
+            num_items = self.power_trace_get_num_items()
+
+        items = []
+        if num_items < 0:
+            raise ValueError("Invalid number of items requested, expected > 0, given %d" % num_items)
+        elif num_items > 0:
+            items = (structs.JLinkPowerTraceItem * num_items)()
+            res = self._dll.JLINK_POWERTRACE_Read(ctypes.byref(items), num_items)
+            if res < 0:
+                raise errors.JLinkException(res)
+
+            # Number of items may be less than the requested count, so clip the
+            # array here.
+            items = list(items)[:res]
+        return items

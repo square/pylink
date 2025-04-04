@@ -1,0 +1,33 @@
+name: Publish Python distributions to TestPyPi and PyPi
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Install Dependencies
+        run: |
+          sudo apt-get install pandoc
+          python -m pip install --upgrade pip
+          pip install pypandoc
+          pip install -e ".[dev,test]"
+      - name: Test Package
+        run: |
+          python -m unittest
+      - name: Build Package
+        run: |
+          python setup.py bdist_wheel sdist
+      - name: Publish Package
+        uses: pypa/gh-action-pypi-publish@v1.4.2
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: ./dist/

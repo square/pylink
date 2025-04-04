@@ -242,7 +242,7 @@ class JLinkHardwareStatus(ctypes.Structure):
       trst: measured state of TRST pin.
     """
     _fields_ = [
-        ('VTarget', ctypes.c_uint32),
+        ('VTarget', ctypes.c_uint16),
         ('tck', ctypes.c_uint8),
         ('tdi', ctypes.c_uint8),
         ('tdo', ctypes.c_uint8),
@@ -260,7 +260,7 @@ class JLinkHardwareStatus(ctypes.Structure):
         Returns:
           String representation of the instance.
         """
-        return '%s(VTarget=%dmA)' % (self.__class__.__name__, self.voltage)
+        return '%s(VTarget=%dmV)' % (self.__class__.__name__, self.voltage)
 
     @property
     def voltage(self):
@@ -1101,3 +1101,370 @@ class JLinkTraceRegion(ctypes.Structure):
           String representation of the trace region.
         """
         return '%s(Index=%d)' % (self.__class__.__name__, self.RegionIndex)
+
+
+class JLinkRTTerminalStart(ctypes.Structure):
+    """Structure used to configure an RTT instance.
+
+    Attributes:
+      ConfigBlockAddress: Address of the RTT block.
+    """
+    _fields_ = [
+        ('ConfigBlockAddress', ctypes.c_uint32),
+        ('Reserved', ctypes.c_uint32 * 3)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStart): RTT start instance.
+
+        Returns:
+          String representation of the instance.
+        """
+        return '%s(ConfigAddress=0x%X)' % (self.__class__.__name__, self.ConfigBlockAddress)
+
+    def __str__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStart): RTT start instance.
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__repr__()
+
+
+class JLinkRTTerminalBufDesc(ctypes.Structure):
+    """Structure describing a RTT buffer.
+
+    Attributes:
+      BufferIndex: index of the buffer to request information about.
+      Direction: direction of the upper (`0` for up, `1` for Down).
+      acName: Name of the buffer.
+      SizeOfBuffer: size of the buffer in bytes.
+      Flags: flags set on the buffer.
+    """
+    _fields_ = [
+        ('BufferIndex', ctypes.c_int32),
+        ('Direction', ctypes.c_uint32),
+        ('acName', ctypes.c_char * 32),
+        ('SizeOfBuffer', ctypes.c_uint32),
+        ('Flags', ctypes.c_uint32)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          String representation of the buffer descriptor.
+        """
+        return '%s(Index=%d, Name=%s)' % (self.__class__.__name__, self.BufferIndex, self.name)
+
+    def __str__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          String representation of the buffer descriptor.
+        """
+        dir_string = 'up' if self.up else 'down'
+        return '%s <Index=%d, Direction=%s, Size=%s>' % (self.name, self.BufferIndex,
+                                                         dir_string, self.SizeOfBuffer)
+
+    @property
+    def up(self):
+        """Returns a boolean indicating if the buffer is an 'UP' buffer.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          ``True`` if the buffer is an 'UP' buffer, otherwise ``False``.
+        """
+        return (self.Direction == 0)
+
+    @property
+    def down(self):
+        """Returns a boolean indicating if the buffer is an 'DOWN' buffer.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          ``True`` if the buffer is an 'DOWN' buffer, otherwise ``False``.
+        """
+        return (self.Direction == 1)
+
+    @property
+    def name(self):
+        """Returns the name of the buffer.
+
+        Args:
+          self (JLinkRTTerminalBufDesc): the terminal buffer descriptor.
+
+        Returns:
+          String name of the buffer.
+        """
+        return self.acName.decode()
+
+
+class JLinkRTTerminalStatus(ctypes.Structure):
+    """Structure describing the status of the RTT terminal.
+
+    Attributes:
+      NumBytesTransferred: number of bytes sent to the client application.
+      NumBytesRead: number of bytes read from the target.
+      HostOverflowCount: number of overflows on the host.
+      IsRunning: if RTT is running.
+      NumUpBuffers: number of 'UP' buffers.
+      NumDownBuffers: number of 'DOWN' buffers.
+    """
+    _fields_ = [
+        ('NumBytesTransferred', ctypes.c_uint32),
+        ('NumBytesRead', ctypes.c_uint32),
+        ('HostOverflowCount', ctypes.c_int),
+        ('IsRunning', ctypes.c_int),
+        ('NumUpBuffers', ctypes.c_int),
+        ('NumDownBuffers', ctypes.c_int),
+        ('Reserved', ctypes.c_uint32 * 2)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStatus): the status instance.
+
+        Returns:
+          Strings representation of the status.
+        """
+        return '%s(NumUpBuffers=%d, NumDownBuffers=%d)' % (self.__class__.__name__,
+                                                           self.NumUpBuffers, self.NumDownBuffers)
+
+    def __str__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkRTTerminalStatus): the status instance.
+
+        Returns:
+          Strings representation of the status.
+        """
+        return 'Status <NumUpBuffers=%d, NumDownBuffers=%d, Running=%s>' % (self.NumUpBuffers,
+                                                                            self.NumDownBuffers,
+                                                                            self.IsRunning)
+
+
+class JLinkPowerTraceSetup(ctypes.Structure):
+    """Structure used to setup the power tracing.
+
+    Attributes:
+      SizeOfStruct: Size of the struct (DO NOT CHANGE).
+      ChannelMask: Bitmask indicating which channels to enable for capturing.
+      SampleFreq: Sampling frequency in Hertz.
+      RefSelect: Identifier of the reference value stored with every trace
+        (see ``enums.JLinkPowerTraceRef``).
+      EnableCond: `1` is tracing is only captured when CPU is running.
+    """
+    _fields_ = [
+        ('SizeOfStruct', ctypes.c_int32),
+        ('ChannelMask', ctypes.c_uint32),
+        ('SampleFreq', ctypes.c_uint32),
+        ('RefSelect', ctypes.c_int32),
+        ('EnableCond', ctypes.c_int32)
+    ]
+
+    def __init__(self):
+        """Initializes the ``JLinkPowerTraceSetup`` instance.
+
+        Sets the size of the structure.
+
+        Args:
+          self (JLinkPowerTraceSetup): the power trace instance.
+
+        Returns:
+          ``None``
+        """
+        super(JLinkPowerTraceSetup, self).__init__()
+        self.SizeOfStruct = ctypes.sizeof(self)
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceSetup): the ``JLinkPowerTraceSetup`` instance
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceSetup): the ``JLinkPowerTraceSetup`` instance
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(Channel Mask=%s, Freq=%uHz)' % (self.__class__.__name__, bin(self.ChannelMask), self.SampleFreq)
+
+
+class JLinkPowerTraceItem(ctypes.Structure):
+    """Structure used to represent a stored power trace item.
+
+    Attributes:
+      RefValue: the stored reference value.
+      Value: the actual recorded trace value.
+    """
+    _fields_ = [
+        ('RefValue', ctypes.c_uint32),
+        ('Value', ctypes.c_uint32)
+    ]
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceItem): the ``JLinkPowerTraceItem`` instance
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceItem): the ``JLinkPowerTraceItem`` instance
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(Value=%u, Reference=%u)' % (self.__class__.__name__, self.Value, self.RefValue)
+
+
+class JLinkPowerTraceCaps(ctypes.Structure):
+    """Structure used to retrieve or specify available power tracing channels.
+
+    Attributes:
+      SizeOfStruct: the size of this structure (in bytes).
+      ChannelMask: bitmask of available channels.
+    """
+    _fields_ = [
+        ('SizeOfStruct', ctypes.c_int32),
+        ('ChannelMask', ctypes.c_uint32)
+    ]
+
+    def __init__(self):
+        """Initializes the ``JLinkPowerTraceCaps`` instance.
+
+        Sets the size of the structure.
+
+        Args:
+          self (JLinkPowerTraceCaps): the power trace caps instance.
+
+        Returns:
+          ``None``
+        """
+        super(JLinkPowerTraceCaps, self).__init__()
+        self.SizeOfStruct = ctypes.sizeof(self)
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceCaps): the caps instance.
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceCaps): the caps instance.
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(Channel Mask=%s)' % (self.__class__.__name__, bin(self.ChannelMask))
+
+
+class JLinkPowerTraceChannelCaps(ctypes.Structure):
+    """Structure representing the capabilities for the queried channels.
+
+    Attributes:
+      SizeOfStruct: the size of this structure (in bytes).
+      BaseSampleFreq: the base sampling frequeny (in Hertz).
+      MinDiv: the minimum divider of the base sampling frequency.
+    """
+    _fields_ = [
+        ('SizeOfStruct', ctypes.c_int32),
+        ('BaseSampleFreq', ctypes.c_uint32),
+        ('MinDiv', ctypes.c_uint32)
+    ]
+
+    def __init__(self):
+        """Initializes the ``JLinkPowerTraceChannelCaps`` instance.
+
+        Sets the size of the structure.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          ``None``
+        """
+        super(JLinkPowerTraceChannelCaps, self).__init__()
+        self.SizeOfStruct = ctypes.sizeof(self)
+
+    @property
+    def max_sample_freq(self):
+        """Returns the maximum sample frequency that can be used.
+
+        The maximum sampling frequency is the largest frequency that can be
+        specified when configuring power tracing, and is computed based on the
+        minimum divider and base sampling frequency.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          ``float``
+        """
+        return (self.BaseSampleFreq * 1.0) / self.MinDiv
+
+    def __repr__(self):
+        """Returns a string representation of the instance.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          String representation of the instance.
+        """
+        return self.__str__()
+
+    def __str__(self):
+        """Returns this instance formatted as a string.
+
+        Args:
+          self (JLinkPowerTraceChannelCaps): the channel capabilities.
+
+        Returns:
+          String formatted instance.
+        """
+        return '%s(SampleFreq=%uHz, MinDiv=%u)' % (self.__class__.__name__, self.BaseSampleFreq, self.MinDiv)

@@ -21,6 +21,11 @@ try:
 except ImportError:
     sys.modules['psutil'] = {}
 
+try:
+    import six
+except ImportError:
+    sys.modules['six'] = {}
+
 import pylink
 
 import os
@@ -221,7 +226,7 @@ def long_description():
 
     try:
         import pypandoc
-        return pypandoc.convert(readme_path, 'rst')
+        return pypandoc.convert_file(readme_path, 'rst')
     except (IOError, ImportError):
         pass
 
@@ -256,7 +261,6 @@ setuptools.setup(
     # Dependencies.
     install_requires=[
         'psutil >= 5.2.2',
-        'future',
         'six'
     ],
 
@@ -270,6 +274,8 @@ setuptools.setup(
 
     # Additional scripts.
     scripts=[
+        os.path.join('examples', 'pylink-rtt'),
+        os.path.join('examples', 'pylink-swv'),
     ],
 
     # Entry points.

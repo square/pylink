@@ -17,8 +17,11 @@ import pylink
 import argparse
 import logging
 import os
-import six
 import sys
+try:
+    from six.moves import with_metaclass
+except (AttributeError, ImportError):
+    from six import with_metaclass
 
 
 class CommandMeta(type):
@@ -49,7 +52,7 @@ class CommandMeta(type):
         return newClass
 
 
-class Command(six.with_metaclass(CommandMeta)):
+class Command(with_metaclass(CommandMeta)):
     """Base command-class.
 
     All commands should inherit from this class.
@@ -440,20 +443,21 @@ class EmulatorCommand(Command):
                     print('IP Address: %s' % emulator.aIPAddr)
         elif args.supported is not None:
             device = args.supported[0]
-            num_supported_devices = jlink.num_supported_devices()
-            for i in range(num_supported_devices):
-                found_device = jlink.supported_device(i)
-                if device.lower() == found_device.name.lower():
-                    print('Device Name: %s' % device)
-                    print('Core ID: %s' % found_device.CoreId)
-                    print('Flash Address: %s' % found_device.FlashAddr)
-                    print('Flash Size: %s bytes' % found_device.FlashSize)
-                    print('RAM Address: %s' % found_device.RAMAddr)
-                    print('RAM Size: %s bytes' % found_device.RAMSize)
-                    print('Manufacturer: %s' % found_device.manufacturer)
-                    break
-            else:
+            try:
+                index = jlink.get_device_index(device)
+            except pylink.errors.JLinkException:
                 print('%s is not supported :(' % device)
+                return None
+
+            found_device = jlink.supported_device(index)
+
+            print('Device Name: %s' % device)
+            print('Core ID: %s' % found_device.CoreId)
+            print('Flash Address: %s' % found_device.FlashAddr)
+            print('Flash Size: %s bytes' % found_device.FlashSize)
+            print('RAM Address: %s' % found_device.RAMAddr)
+            print('RAM Size: %s bytes' % found_device.RAMSize)
+            print('Manufacturer: %s' % found_device.manufacturer)
 
         return None
 
@@ -595,7 +599,14 @@ def main(args=None):
     logging.basicConfig(level=level)
 
     try:
-        args.command(args)
+        if hasattr(args, 'command'):
+            args.command(args)
+        else:
+            # Python 3 argparse won't create the command attribute and an
+            # AttributeError will be raised if no commands are specified. Note:
+            # Python 3.7 added support for subparsers being required.  Emulate
+            # Python 2 error here for consistent behavior.
+            parser.error('too few arguments')
     except pylink.JLinkException as e:
         sys.stderr.write('Error: %s%s' % (str(e), os.linesep))
         return 1

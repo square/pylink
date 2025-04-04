@@ -141,8 +141,8 @@ class TestStructs(unittest.TestCase):
         status = structs.JLinkHardwareStatus()
         status.VTarget = voltage
         self.assertEqual(voltage, status.voltage)
-        self.assertEqual('JLinkHardwareStatus(VTarget=100mA)', str(status))
-        self.assertEqual('JLinkHardwareStatus(VTarget=100mA)', repr(status))
+        self.assertEqual('JLinkHardwareStatus(VTarget=100mV)', str(status))
+        self.assertEqual('JLinkHardwareStatus(VTarget=100mV)', repr(status))
 
     def test_jlink_gpio_descriptor(self):
         """Tests the ``JLinkGPIODescriptor`` structure.
@@ -399,6 +399,133 @@ class TestStructs(unittest.TestCase):
         rep = 'JLinkTraceRegion(Index=0)'
         self.assertEqual(rep, str(region))
         self.assertEqual(rep, repr(region))
+
+    def test_jlink_rtt_terminal_start(self):
+        """Tests the ``JLinkRTTerminalStart`` structure.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        start = structs.JLinkRTTerminalStart()
+        rep = 'JLinkRTTerminalStart(ConfigAddress=0x0)'
+        self.assertEqual(rep, repr(start))
+
+        start.ConfigBlockAddress = 0xDEADBEEF
+        rep = 'JLinkRTTerminalStart(ConfigAddress=0xDEADBEEF)'
+        self.assertEqual(rep, str(start))
+
+    def test_jlink_rtt_terminal_buf_desc(self):
+        """Tests the ``JLinkRTTerminalBufDesc`` structure.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        desc = structs.JLinkRTTerminalBufDesc()
+        desc.BufferIndex = 7
+        desc.SizeOfBuffer = 1337
+        desc.Flags = 0
+        desc.acName = str.encode('The Winds of Winter')
+
+        desc.Direction = 0
+        self.assertTrue(desc.up)
+        self.assertFalse(desc.down)
+
+        desc.Direction = 1
+        self.assertTrue(desc.down)
+        self.assertFalse(desc.up)
+
+        self.assertEqual('The Winds of Winter', desc.name)
+        self.assertEqual('JLinkRTTerminalBufDesc(Index=7, Name=The Winds of Winter)', repr(desc))
+        self.assertEqual('The Winds of Winter <Index=7, Direction=down, Size=1337>', str(desc))
+
+        desc.Direction = 0
+        self.assertEqual('The Winds of Winter <Index=7, Direction=up, Size=1337>', str(desc))
+
+    def test_jlink_rtt_terminal_stat(self):
+        """Tests the ``JLinkRTTerminalStatus`` structure.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        stat = structs.JLinkRTTerminalStatus()
+        stat.NumUpBuffers = 3
+        stat.NumDownBuffers = 3
+        stat.IsRunning = 1
+
+        self.assertEqual('JLinkRTTerminalStatus(NumUpBuffers=3, NumDownBuffers=3)', repr(stat))
+        self.assertEqual('Status <NumUpBuffers=3, NumDownBuffers=3, Running=1>', str(stat))
+
+    def test_jlink_power_trace_setup(self):
+        """Validates the ``JLinkPowerTraceSetup`` serializes correctly.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        setup = structs.JLinkPowerTraceSetup()
+        setup.ChannelMask = 0x3
+        setup.SampleFreq = 1000
+
+        self.assertEqual(20, setup.SizeOfStruct)
+        self.assertEqual('JLinkPowerTraceSetup(Channel Mask=0b11, Freq=1000Hz)', repr(setup))
+
+    def test_jlink_power_trace_item(self):
+        """Validates the ``JLinkPowerTraceItem`` serializes correctly.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        item = structs.JLinkPowerTraceItem()
+        item.RefValue = 0xDEADBEEF
+        item.Value = 13
+
+        self.assertEqual('JLinkPowerTraceItem(Value=13, Reference=3735928559)', repr(item))
+
+    def test_jlink_power_trace_caps(self):
+        """Validates that the ``JLinkPowerTraceCaps`` serializes correctly.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        caps = structs.JLinkPowerTraceCaps()
+        caps.ChannelMask = 0x3
+
+        self.assertEqual(8, caps.SizeOfStruct)
+        self.assertEqual('JLinkPowerTraceCaps(Channel Mask=0b11)', repr(caps))
+
+    def test_jlink_power_trace_channel_caps(self):
+        """Validates the ``JLinkPowerTraceChannelCaps`` instance.
+
+        Args:
+          self (TestStructs): the ``TestStructs`` instance
+
+        Returns:
+          ``None``
+        """
+        channel_caps = structs.JLinkPowerTraceChannelCaps()
+        channel_caps.BaseSampleFreq = 1000
+        channel_caps.MinDiv = 4
+
+        self.assertEqual(12, channel_caps.SizeOfStruct)
+        self.assertEqual(250, channel_caps.max_sample_freq)
+        self.assertEqual('JLinkPowerTraceChannelCaps(SampleFreq=1000Hz, MinDiv=4)', repr(channel_caps))
 
 
 if __name__ == '__main__':
