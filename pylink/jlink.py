@@ -3194,6 +3194,88 @@ class JLink(object):
         return self.memory_write32(addr, words, zone=zone)
 
     @connection_required
+    def peripheral_write8(self, addr, value):
+        """Writes byte to peripheral register of target system.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          addr (int): start address to write to
+          value (int): the value to write to the register
+
+        Returns:
+          The value written to the register.
+
+        Raises:
+          JLinkException: on write error.
+        """
+        res = self._dll.JLINKARM_WriteU8(addr, value)
+        if res != 0:
+            raise errors.JLinkWriteException('Error writing to %d' % addr)
+        return value
+
+    @connection_required
+    def peripheral_write16(self, addr, value):
+        """Writes half-word to peripheral register of target system.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          addr (int): start address to write to
+          value (int): the value to write to the register
+
+        Returns:
+          The value written to the register.
+
+        Raises:
+          JLinkException: on write error.
+        """
+        res = self._dll.JLINKARM_WriteU16(addr, value)
+        if res != 0:
+            raise errors.JLinkWriteException('Error writing to %d' % addr)
+        return value
+
+    @connection_required
+    def peripheral_write32(self, addr, value):
+        """Writes word to peripheral register of target system.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          addr (int): start address to write to
+          value (int): the value to write to the register
+
+        Returns:
+          The value written to the register.
+
+        Raises:
+          JLinkException: on write error.
+        """
+        res = self._dll.JLINKARM_WriteU32(addr, value)
+        if res != 0:
+            raise errors.JLinkWriteException('Error writing to %d' % addr)
+        return value
+
+    @connection_required
+    def peripheral_write64(self, addr, value):
+        """Writes long word to peripheral register of target system.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          addr (int): start address to write to
+          value (long): the value to write to the register
+
+        Returns:
+          The value written to the register.
+
+        Raises:
+          JLinkException: on write error.
+        """
+        # Default type is uint32_t，so specify the parameter type of the C function, otherwise get "ArgumentError"
+        self._dll.JLINKARM_WriteU64.argtypes = [ctypes.c_uint32, ctypes.c_uint64]
+        res = self._dll.JLINKARM_WriteU64(addr, value)
+        if res != 0:
+            raise errors.JLinkWriteException('Error writing to %d' % addr)
+        return value
+
+    @connection_required
     def register_read(self, register_index):
         """Reads the value from the given register.
 
