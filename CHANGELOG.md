@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.6.0]
+### Added
+- @tianxiaoMCU: Added APIs to write to the peripheral register of the connected
+  target:
+    - `peripheral_write8()`
+    - `peripheral_write16()`
+    - `peripheral_write32()`
+    - `peripheral_write64()`
+
 ## [1.5.1]
 ### Fixed
 - @karl-rainlabs: Fixed incorrect decorator around JTAG APIs. Previously, the
