@@ -56,7 +56,7 @@ Tool for updating J-Links on a Windows platform.
 ### Real Time Transfer (RTT)
 
 #### Source
-[RTT](./rtt.py)
+[RTT](./pylink-rtt)
 
 #### Description
 Tool for a simple command-line terminal that communicates over RTT.
