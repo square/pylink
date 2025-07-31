@@ -2639,16 +2639,14 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.side_effect = JLinkException(-1)
-
         self.jlink.halt = mock.Mock()
+        self.jlink.halt.side_effect = JLinkException(-1)
 
         self.dll.JLINK_EraseChip.return_value = 0
         self.assertEqual(0, self.jlink.erase())
 
         self.assertEqual(1, self.dll.JLINK_EraseChip.call_count)
-        self.assertEqual(0, self.jlink.halt.call_count)
+        self.assertEqual(1, self.jlink.halt.call_count)
 
     def test_jlinK_erase_failed(self):
         """Tests the J-Link ``erase()`` method when it fails to erase.
@@ -2659,10 +2657,8 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.side_effect = JLinkException(-1)
-
         self.jlink.halt = mock.Mock()
+        self.jlink.halt.side_effect = JLinkException(-1)
 
         self.dll.JLINK_EraseChip.return_value = -1
 
@@ -2670,7 +2666,7 @@ class TestJLink(unittest.TestCase):
             self.jlink.erase()
 
         self.assertEqual(1, self.dll.JLINK_EraseChip.call_count)
-        self.assertEqual(0, self.jlink.halt.call_count)
+        self.assertEqual(1, self.jlink.halt.call_count)
 
     def test_jlink_erase_success(self):
         """Tests a successful erase of the target.
@@ -2681,9 +2677,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = False
-
         self.jlink.halt = mock.Mock()
 
         self.dll.JLINK_EraseChip.return_value = 1
@@ -2718,12 +2711,10 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINKARM_WriteMem.return_value = 0
 
+        self.jlink.halt = mock.Mock()
         self.jlink.power_on = mock.Mock()
         self.jlink.erase = mock.Mock()
         self.jlink.memory_write = mock.Mock()
-
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
 
         # EndDownload failing
         self.dll.JLINKARM_EndDownload.return_value = -1
@@ -2747,8 +2738,6 @@ class TestJLink(unittest.TestCase):
         self.jlink.memory_write = mock.Mock()
 
         self.jlink.halt = mock.Mock()
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
 
         # With a progress callback.
         self.assertEqual(0, self.jlink.flash([0], 0, util.noop))
@@ -2761,20 +2750,10 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(0, self.jlink.flash([0], 0))
         self.dll.JLINK_SetFlashProgProgressCallback.assert_called_with(0)
 
-        # Halted exception
-        self.jlink.halted.side_effect = JLinkException(-1)
+        # Halt exception
+        self.jlink.halt.side_effect = JLinkException(-1)
         self.assertEqual(0, self.jlink.flash([0], 0))
-        self.jlink.halted.side_effect = None
-
-        # Not halted
-        self.jlink.halted.return_value = False
-        self.assertEqual(0, self.jlink.flash([0], 0))
-        self.jlink.halt.assert_called_once()
-
-        # Halted
-        self.jlink.halted.return_value = True
-        self.assertEqual(0, self.jlink.flash([0], 0))
-        self.jlink.halt.assert_called_once()
+        self.jlink.halt.side_effect = None
 
         # Without power by default
         self.jlink.power_on = mock.Mock()
@@ -2802,8 +2781,7 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINK_DownloadFile.return_value = -1
 
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
+        self.jlink.halt = mock.Mock()
 
         self.jlink.power_on = mock.Mock()
         self.jlink.erase = mock.Mock()
@@ -2822,9 +2800,6 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINK_DownloadFile.return_value = 0
 
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
-
         self.jlink.halt = mock.Mock()
         self.jlink.power_on = mock.Mock()
         self.jlink.erase = mock.Mock()
@@ -2840,20 +2815,10 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(0, self.jlink.flash_file('path', 0))
         self.dll.JLINK_SetFlashProgProgressCallback.assert_called_with(0)
 
-        # Halted exception
-        self.jlink.halted.side_effect = JLinkException(-1)
+        # Halt exception
+        self.jlink.halt.side_effect = JLinkException(-1)
         self.assertEqual(0, self.jlink.flash_file('path', 0))
-        self.jlink.halted.side_effect = None
-
-        # Not halted
-        self.jlink.halted.return_value = False
-        self.assertEqual(0, self.jlink.flash_file('path', 0))
-        self.jlink.halt.assert_called_once()
-
-        # Halted
-        self.jlink.halted.return_value = True
-        self.assertEqual(0, self.jlink.flash_file('path', 0))
-        self.jlink.halt.assert_called_once()
+        self.jlink.halt.side_effect = None
 
         # With power
         self.jlink.power_on = mock.Mock()
