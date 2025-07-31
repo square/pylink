@@ -2225,7 +2225,7 @@ class JLink(object):
 
         res = self._dll.JLINKARM_EndDownload()
         if res < 0:
-            raise errors.JLinkEraseException(res)
+            raise errors.JLinkFlashException(res)
 
         return bytes_flashed
 
