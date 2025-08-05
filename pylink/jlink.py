@@ -2157,8 +2157,7 @@ class JLink(object):
         try:
             # This has to be in a try-catch, as the device may not be in a
             # state where it can halt, but we still want to try and erase.
-            if not self.halted():
-                self.halt()
+            self.halt()
         except errors.JLinkException:
             # Can't halt, so just continue to erasing.
             pass
@@ -2209,9 +2208,8 @@ class JLink(object):
 
         try:
             # Stop the target before flashing.  This is required to be in a
-            # try-catch as the 'halted()' check may fail with an exception.
-            if not self.halted():
-                self.halt()
+            # try-catch as the device may not be in a state where it can halt.
+            self.halt()
         except errors.JLinkException:
             pass
 
@@ -2264,9 +2262,8 @@ class JLink(object):
 
         try:
             # Stop the target before flashing.  This is required to be in a
-            # try-catch as the 'halted()' check may fail with an exception.
-            if not self.halted():
-                self.halt()
+            # try-catch as the device may not be in a state where it can halt.
+            self.halt()
         except errors.JLinkException:
             pass
 
