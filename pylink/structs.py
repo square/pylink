@@ -1468,3 +1468,54 @@ class JLinkPowerTraceChannelCaps(ctypes.Structure):
           String formatted instance.
         """
         return '%s(SampleFreq=%uHz, MinDiv=%u)' % (self.__class__.__name__, self.BaseSampleFreq, self.MinDiv)
+
+
+class JLinkJTAGDeviceInfo(ctypes.Structure):
+    """Structure representing the information of a device on the JTAG scan chain.
+
+    Attributes:
+      sName: the name of the device.
+      IRLen: instruction register length.
+      IRPrint: instruction register print.
+      DeviceId: JTAG id.
+    """
+    _fields_ = [
+        ('sName', ctypes.c_char_p),
+        ('IRLen', ctypes.c_uint32),
+        ('IRPrint', ctypes.c_uint32),
+        ('DeviceId', ctypes.c_uint32)
+    ]
+
+    def __repr__(self):
+        """Returns a representation of this instance.
+
+        Args:
+          self (JLinkJTAGDeviceInfo): the ``JLinkJTAGDeviceInfo`` instance
+
+        Returns:
+          Returns a string representation of the instance.
+        """
+        return 'JLinkJTAGDeviceInfo(%s)' % self.__str__()
+
+    def __str__(self):
+        """Returns a string representation of this instance.
+
+        Args:
+          self (JLinkJTAGDeviceInfo): the ``JLinkJTAGDeviceInfo`` instance
+
+        Returns:
+          Returns a string specifying the device name and ID.
+        """
+        return '%s <Device Id. %s>' % (self.name, self.DeviceId)
+
+    @property
+    def name(self):
+        """Returns the name of the JTAG device.
+
+        Args:
+          self (JLinkJTAGDeviceInfo): the ``JLinkJTAGDeviceInfo`` instance
+
+        Returns:
+          Device name.
+        """
+        return ctypes.cast(self.sName, ctypes.c_char_p).value.decode()
