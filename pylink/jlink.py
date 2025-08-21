@@ -2631,7 +2631,7 @@ class JLink(object):
 
     @interface_required(enums.JLinkInterfaces.JTAG)
     @open_required
-    def jtag_store_instruction(self, instr, num_bits):
+    def jtag_store_instruction(self, instr, ir_len):
         """Stores the specified JTAG instruction in the internal output buffer to
         be written to the instruction register of the JTAG device.
 
@@ -2645,17 +2645,17 @@ class JLink(object):
         Args:
           self (JLink): the ``JLink`` instance.
           instr (int): JTAG protocol command bits.
-          num_bits (int): Number of bits in the given instruction.
+          ir_len (int): instruction register length.
 
         Returns:
           Bit position in input buffer after instruction transmission.
         """
         buf = ctypes.c_uint8(instr)
-        return self._dll.JLINKARM_JTAG_StoreInst(ctypes.byref(buf), num_bits)
+        return self._dll.JLINKARM_JTAG_StoreInst(ctypes.byref(buf), ir_len)
 
     @interface_required(enums.JLinkInterfaces.JTAG)
     @open_required
-    def jtag_store_data(self, data, num_bits):
+    def jtag_store_data(self, data, dr_len):
         """Stores the specified JTAG data in the internal output buffer to be
         written to the data register of the JTAG device.
 
@@ -2668,16 +2668,21 @@ class JLink(object):
         Args:
           self (JLink): the ``JLink`` instance.
           data (list): list of bits to transfer.
-          num_bits (int): number of bits to to transfer per integer in ``data``.
+          dr_len (int): data register length.
 
         Returns:
           Bit position in input buffer after instruction transmission.
+
+        Raises:
+          TypeError: If passed data is not bytes or a list of integers.
         """
         buf = data
         if isinstance(buf, list):
             buf = bytes(buf)
+        elif not any(isinstance(buf, t) for t in [bytes, bytearray]):
+            raise TypeError('Expected to be given bytes / list: given %s' % type(buf))
 
-        return self._dll.JLINKARM_JTAG_StoreData(buf, len(data) * num_bits)
+        return self._dll.JLINKARM_JTAG_StoreData(buf, len(data) * dr_len)
 
     @interface_required(enums.JLinkInterfaces.JTAG)
     @open_required
@@ -2730,7 +2735,7 @@ class JLink(object):
         # return two integers, but that is fine, so the caller ultimately knows
         # the data length they need.
         buf_size = num_bits // 4
-        if (buf_size % 4) > 0:
+        if (num_bits % 4) > 0:
             buf_size += 1
         buf = (ctypes.c_uint8 * buf_size)()
         self._dll.JLINKARM_JTAG_GetData(ctypes.byref(buf), offset, num_bits)

@@ -3297,7 +3297,7 @@ class TestJLink(unittest.TestCase):
         self.jlink.jtag_flush()
         self.dll.JLINKARM_WriteBits.assert_called_once()
 
-    def test_jlijnk_jtag_store_instruction(self):
+    def test_jlink_jtag_store_instruction(self):
         """Tests the J-Link JTAG method for storing a JTAG instruction.
 
         Args:
@@ -3328,7 +3328,8 @@ class TestJLink(unittest.TestCase):
         self.jlink.jtag_store_data(tdi, 5)
 
         buf, num_bits = self.dll.JLINKARM_JTAG_StoreData.call_args[0]
-        self.assertEqual(10, num_bits)
+        expected_num_bits = len(tdi) * 5
+        self.assertEqual(expected_num_bits, num_bits)
         self.assertEqual(b'\x0A\x03', bytearray(buf))
 
     def test_jlink_jtag_get_device_info(self):
