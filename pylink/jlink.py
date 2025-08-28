@@ -2685,7 +2685,7 @@ class JLink(object):
         return self._dll.JLINKARM_JTAG_StoreData(buf, len(data) * dr_len)
 
     @interface_required(enums.JLinkInterfaces.JTAG)
-    @open_required
+    @connection_required
     def jtag_get_device_info(self, index=0):
         """Retrieves the JTAG related information for the JTAG device on the scan chain.
 
