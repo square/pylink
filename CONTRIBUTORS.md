@@ -27,3 +27,5 @@ In the order of appearance in the commit history:
 | Ben Brown                 | @bbrown1867        |
 | Karl Sigurdsson           | @karl-rainlabs     |
 | -                         | @tianxiaoMCU       |
+| -                         | @mtnpke            |
+| Omri Sarig                | @omrisarig13       |

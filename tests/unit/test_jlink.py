@@ -2639,16 +2639,14 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.side_effect = JLinkException(-1)
-
         self.jlink.halt = mock.Mock()
+        self.jlink.halt.side_effect = JLinkException(-1)
 
         self.dll.JLINK_EraseChip.return_value = 0
         self.assertEqual(0, self.jlink.erase())
 
         self.assertEqual(1, self.dll.JLINK_EraseChip.call_count)
-        self.assertEqual(0, self.jlink.halt.call_count)
+        self.assertEqual(1, self.jlink.halt.call_count)
 
     def test_jlinK_erase_failed(self):
         """Tests the J-Link ``erase()`` method when it fails to erase.
@@ -2659,10 +2657,8 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.side_effect = JLinkException(-1)
-
         self.jlink.halt = mock.Mock()
+        self.jlink.halt.side_effect = JLinkException(-1)
 
         self.dll.JLINK_EraseChip.return_value = -1
 
@@ -2670,7 +2666,7 @@ class TestJLink(unittest.TestCase):
             self.jlink.erase()
 
         self.assertEqual(1, self.dll.JLINK_EraseChip.call_count)
-        self.assertEqual(0, self.jlink.halt.call_count)
+        self.assertEqual(1, self.jlink.halt.call_count)
 
     def test_jlink_erase_success(self):
         """Tests a successful erase of the target.
@@ -2681,9 +2677,6 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = False
-
         self.jlink.halt = mock.Mock()
 
         self.dll.JLINK_EraseChip.return_value = 1
@@ -2718,12 +2711,10 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINKARM_WriteMem.return_value = 0
 
+        self.jlink.halt = mock.Mock()
         self.jlink.power_on = mock.Mock()
         self.jlink.erase = mock.Mock()
         self.jlink.memory_write = mock.Mock()
-
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
 
         # EndDownload failing
         self.dll.JLINKARM_EndDownload.return_value = -1
@@ -2747,8 +2738,6 @@ class TestJLink(unittest.TestCase):
         self.jlink.memory_write = mock.Mock()
 
         self.jlink.halt = mock.Mock()
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
 
         # With a progress callback.
         self.assertEqual(0, self.jlink.flash([0], 0, util.noop))
@@ -2761,20 +2750,10 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(0, self.jlink.flash([0], 0))
         self.dll.JLINK_SetFlashProgProgressCallback.assert_called_with(0)
 
-        # Halted exception
-        self.jlink.halted.side_effect = JLinkException(-1)
+        # Halt exception
+        self.jlink.halt.side_effect = JLinkException(-1)
         self.assertEqual(0, self.jlink.flash([0], 0))
-        self.jlink.halted.side_effect = None
-
-        # Not halted
-        self.jlink.halted.return_value = False
-        self.assertEqual(0, self.jlink.flash([0], 0))
-        self.jlink.halt.assert_called_once()
-
-        # Halted
-        self.jlink.halted.return_value = True
-        self.assertEqual(0, self.jlink.flash([0], 0))
-        self.jlink.halt.assert_called_once()
+        self.jlink.halt.side_effect = None
 
         # Without power by default
         self.jlink.power_on = mock.Mock()
@@ -2802,8 +2781,7 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINK_DownloadFile.return_value = -1
 
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
+        self.jlink.halt = mock.Mock()
 
         self.jlink.power_on = mock.Mock()
         self.jlink.erase = mock.Mock()
@@ -2822,9 +2800,6 @@ class TestJLink(unittest.TestCase):
         """
         self.dll.JLINK_DownloadFile.return_value = 0
 
-        self.jlink.halted = mock.Mock()
-        self.jlink.halted.return_value = True
-
         self.jlink.halt = mock.Mock()
         self.jlink.power_on = mock.Mock()
         self.jlink.erase = mock.Mock()
@@ -2840,20 +2815,10 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(0, self.jlink.flash_file('path', 0))
         self.dll.JLINK_SetFlashProgProgressCallback.assert_called_with(0)
 
-        # Halted exception
-        self.jlink.halted.side_effect = JLinkException(-1)
+        # Halt exception
+        self.jlink.halt.side_effect = JLinkException(-1)
         self.assertEqual(0, self.jlink.flash_file('path', 0))
-        self.jlink.halted.side_effect = None
-
-        # Not halted
-        self.jlink.halted.return_value = False
-        self.assertEqual(0, self.jlink.flash_file('path', 0))
-        self.jlink.halt.assert_called_once()
-
-        # Halted
-        self.jlink.halted.return_value = True
-        self.assertEqual(0, self.jlink.flash_file('path', 0))
-        self.jlink.halt.assert_called_once()
+        self.jlink.halt.side_effect = None
 
         # With power
         self.jlink.power_on = mock.Mock()
@@ -3331,6 +3296,112 @@ class TestJLink(unittest.TestCase):
         """
         self.jlink.jtag_flush()
         self.dll.JLINKARM_WriteBits.assert_called_once()
+
+    def test_jlink_jtag_store_instruction(self):
+        """Tests the J-Link JTAG method for storing a JTAG instruction.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        cmd = 0xE
+        self.jlink.jtag_store_instruction(cmd, 4)
+
+        c_byte, num_bits = self.dll.JLINKARM_JTAG_StoreInst.call_args[0]
+        self.assertEqual(4, num_bits)
+
+        c_uint = ctypes.cast(c_byte, ctypes.POINTER(ctypes.c_uint8)).contents
+        self.assertEqual(cmd, c_uint.value)
+
+    def test_jlink_jtag_store_data(self):
+        """Tests the J-Link JTAG method for storing TDI.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        tdi = [0xA, 0x3]
+        self.jlink.jtag_store_data(tdi, 5)
+
+        buf, num_bits = self.dll.JLINKARM_JTAG_StoreData.call_args[0]
+        expected_num_bits = len(tdi) * 5
+        self.assertEqual(expected_num_bits, num_bits)
+        self.assertEqual(b'\x0A\x03', bytearray(buf))
+
+    def test_jlink_jtag_get_device_info(self):
+        """Tests the J-Link JTAG method for retrieving JTAG device information.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Return:
+          ``None``
+        """
+        with self.assertRaises(ValueError):
+            _ = self.jlink.jtag_get_device_info(-1)
+
+        self.dll.JLINKARM_JTAG_GetDeviceInfo.return_value = -1
+        with self.assertRaises(ValueError):
+            _ = self.jlink.jtag_get_device_info(0)
+
+        def _get_device_info(index, info):
+            c_info = ctypes.cast(info, ctypes.POINTER(structs.JLinkJTAGDeviceInfo)).contents
+            c_info.IRLen = 0x1
+            c_info.IRPrint = 0x2
+            c_info.DeviceId = 0x1337
+            name = b"Silk Song"
+            c_info.sName = ctypes.cast(name, ctypes.c_char_p)
+            return 0
+
+        self.dll.JLINKARM_JTAG_GetDeviceInfo = _get_device_info
+        self.dll.JLINKARM_JTAG_GetDeviceId.return_value = 0x1337
+
+        info = self.jlink.jtag_get_device_info(0)
+        self.assertEqual(0x1337, info.DeviceId)
+        self.assertEqual(0x1, info.IRLen)
+        self.assertEqual(0x2, info.IRPrint)
+        self.assertEqual("Silk Song", info.name)
+
+    def test_jlink_jtag_read(self):
+        """Tests the J-Link JTAG read methods.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        self.jlink._tif = enums.JLinkInterfaces.JTAG
+
+        val = 0x12345678
+        self.dll.JLINKARM_JTAG_GetU8.return_value = val & 0xFF
+        self.dll.JLINKARM_JTAG_GetU16.return_value = val & 0xFFFF
+        self.dll.JLINKARM_JTAG_GetU32.return_value = val & 0xFFFFFFFF
+
+        self.assertEqual(0x78, self.jlink.jtag_read8(0))
+        self.assertEqual(0x5678, self.jlink.jtag_read16(0))
+        self.assertEqual(0x12345678, self.jlink.jtag_read32(0))
+
+        def _get_data(buf, offset, num_bits):
+            c_buf = ctypes.cast(buf, ctypes.POINTER(ctypes.c_uint8))
+            buf_index = 0
+            bit_index = 0
+            while num_bits:
+                rd_size = min(num_bits, 4)
+                num_bits -= rd_size
+                b = 0
+                for i in range(0, rd_size):
+                    b |= ((val & (0x1 << bit_index)) >> bit_index) << i
+                    bit_index += 1
+                c_buf[buf_index] = b
+                buf_index += 1
+
+        self.dll.JLINKARM_JTAG_GetData = _get_data
+        self.assertEqual([0x8, 0x7, 0x6, 0x5], self.jlink.jtag_read(0, 16))
 
     def test_jlink_swd_read8(self):
         """Tests the J-Link ``swd_read8()`` method.

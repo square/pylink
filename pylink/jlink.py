@@ -323,7 +323,7 @@ class JLink(object):
         self.error_handler = lambda s: (error or logger.error)(s.decode(errors='replace'))
         self.warning_handler = lambda s: (warn or logger.warning)(s.decode(errors='replace'))
         self.log_handler = lambda s: (log or logger.info)(s.decode(errors='replace'))
-        self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode(errors='replace'))
+        self.detailed_log_handler = lambda s: (detailed_log or logger.debug)(s.decode(errors='replace').rstrip())
 
         # Parameters used for open() in context manager
         self.__serial_no = serial_no
@@ -2158,8 +2158,7 @@ class JLink(object):
         try:
             # This has to be in a try-catch, as the device may not be in a
             # state where it can halt, but we still want to try and erase.
-            if not self.halted():
-                self.halt()
+            self.halt()
         except errors.JLinkException:
             # Can't halt, so just continue to erasing.
             pass
@@ -2210,9 +2209,8 @@ class JLink(object):
 
         try:
             # Stop the target before flashing.  This is required to be in a
-            # try-catch as the 'halted()' check may fail with an exception.
-            if not self.halted():
-                self.halt()
+            # try-catch as the device may not be in a state where it can halt.
+            self.halt()
         except errors.JLinkException:
             pass
 
@@ -2226,7 +2224,7 @@ class JLink(object):
 
         res = self._dll.JLINKARM_EndDownload()
         if res < 0:
-            raise errors.JLinkEraseException(res)
+            raise errors.JLinkFlashException(res)
 
         return bytes_flashed
 
@@ -2265,9 +2263,8 @@ class JLink(object):
 
         try:
             # Stop the target before flashing.  This is required to be in a
-            # try-catch as the 'halted()' check may fail with an exception.
-            if not self.halted():
-                self.halt()
+            # try-catch as the device may not be in a state where it can halt.
+            self.halt()
         except errors.JLinkException:
             pass
 
@@ -2632,6 +2629,201 @@ class JLink(object):
           ``None``
         """
         self._dll.JLINKARM_WriteBits()
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_store_instruction(self, instr, ir_len):
+        """Stores the specified JTAG instruction in the internal output buffer to
+        be written to the instruction register of the JTAG device.
+
+        The necessary bits to place the TAP controller into the Shift-IR state
+        are automatically added in order to form the complete command
+        sequence for the given instruction.
+
+        Data in the output buffer is not flushed until TDO data is required, or
+        ``jtag_sync_bits()`` or ``jtag_sync_bytes()`` is called.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          instr (int): JTAG protocol command bits.
+          ir_len (int): instruction register length.
+
+        Returns:
+          Bit position in input buffer after instruction transmission.
+        """
+        buf = ctypes.c_uint8(instr)
+        return self._dll.JLINKARM_JTAG_StoreInst(ctypes.byref(buf), ir_len)
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_store_data(self, data, dr_len):
+        """Stores the specified JTAG data in the internal output buffer to be
+        written to the data register of the JTAG device.
+
+        The necessary bits to place the TAP controller into the Shift-DR state
+        are automatically added in order to form a complete data transmission.
+
+        Data in the output buffer is not flushed until TDO data is required, or
+        ``jtag_sync_bits()`` or ``jtag_sync_bytes()`` is called.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          data (list): list of bits to transfer.
+          dr_len (int): data register length.
+
+        Returns:
+          Bit position in input buffer after instruction transmission.
+
+        Raises:
+          TypeError: If passed data is not bytes or a list of integers.
+        """
+        buf = data
+        if isinstance(buf, list):
+            buf = bytes(buf)
+        elif not any(isinstance(buf, t) for t in [bytes, bytearray]):
+            raise TypeError('Expected to be given bytes / list: given %s' % type(buf))
+
+        return self._dll.JLINKARM_JTAG_StoreData(buf, len(data) * dr_len)
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @connection_required
+    def jtag_get_device_info(self, index=0):
+        """Retrieves the JTAG related information for the JTAG device on the scan chain.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          index (int): index of the device on the scan chain.
+
+        Returns:
+          A ``JLinkJTAGDeviceInfo`` describing the requested device.
+
+        Raises:
+          ValueError: if index is less than 0 or >= number of devices on the scan chain.
+        """
+        if index < 0:
+            raise ValueError('Invalid index provided, must be > 0.')
+
+        info = structs.JLinkJTAGDeviceInfo()
+        res = self._dll.JLINKARM_JTAG_GetDeviceInfo(index, ctypes.byref(info))
+        if res == -1:
+            raise ValueError('Invalid index provided, no device found.')
+
+        info.DeviceId = self._dll.JLINKARM_JTAG_GetDeviceId(index)
+        return info
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_read(self, offset, num_bits):
+        """Reads the specified number of bits from the JTAG input buffer.
+
+        Note:
+          If there is data in the output buffer, then ``num_bits`` of data will
+          be transmitted.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          offset (int): bit position within the input buffer to read from.
+          num_bits (int): total number of bits to read.
+
+        Returns:
+          List of bytes containing the TDO data. This function may return more
+          bytes than expected due to no context around the data size. The
+          caller should pull bits as appopriate starting from the first returned
+          byte.
+        """
+        # The smallest data length is 4 bits, so we use that as a divider. If
+        # the data length is actually 7 and the user specifies 7, we will
+        # return two integers, but that is fine, so the caller ultimately knows
+        # the data length they need.
+        buf_size = num_bits // 4
+        if (num_bits % 4) > 0:
+            buf_size += 1
+        buf = (ctypes.c_uint8 * buf_size)()
+        self._dll.JLINKARM_JTAG_GetData(ctypes.byref(buf), offset, num_bits)
+        return list(buf)
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_read8(self, offset):
+        """Reads a 8-bit integer from the JTAG input buffer.
+
+        Note:
+          If there is data in the output buffer, this function will force a
+          transmission.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          offset (int): bit position within the input buffer to read from.
+
+        Returns:
+          The read 8-bit integer from the input buffer.
+        """
+        return self._dll.JLINKARM_JTAG_GetU8(offset)
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_read16(self, offset):
+        """Reads a 16-bit integer from the JTAG input buffer.
+
+        Note:
+          If there is data in the output buffer, this function will force a
+          transmission.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          offset (int): bit position within the input buffer to read from.
+
+        Returns:
+          The read 16-bit integer from the input buffer.
+        """
+        return self._dll.JLINKARM_JTAG_GetU16(offset)
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_read32(self, offset):
+        """Reads a 32-bit integer from the JTAG input buffer.
+
+        Note:
+          If there is data in the output buffer, this function will force a
+          transmission.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+          offset (int): bit position within the input buffer to read from.
+
+        Returns:
+          The read 32-bit integer from the input buffer.
+        """
+        return self._dll.JLINKARM_JTAG_GetU32(offset)
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_sync_bits(self):
+        """Flushes the internal output buffer to the JTAG device.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+        """
+        self._dll.JLINKARM_JTAG_SyncBits()
+
+    @interface_required(enums.JLinkInterfaces.JTAG)
+    @open_required
+    def jtag_sync_bytes(self):
+        """Flushes the data content in the internal output buffer to the JTAG device.
+
+        This function will add the necessary bits to ensure the transmitted
+        data is byte-aligned.
+
+        Args:
+          self (JLink): the ``JLink`` instance.
+
+        Returns:
+          ``None``
+        """
+        self._dll.JLINKARM_JTAG_SyncBytes()
 
     @interface_required(enums.JLinkInterfaces.SWD)
     @connection_required

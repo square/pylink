@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.7.0]
+### Added
+- @hkpeprah: Added JTAG APIs:
+    - `jtag_store_instruction` - To send an instruction to the JTAG device.
+    - `jtag_store_data` - To send data to the JTAG device (TDO).
+    - `jtag_get_device_info` - To get information about a JTAG device on the scan chain.
+    - `jtag_read` / `jtag_read{8,16,32}` - To read data from a JTAG device (from the input buffer / TDI).
+    - `jtag_sync_bits` / `jtag_sync_bytes` - To force a flush of the output buffer.
+
+### Changed
+- @hkpeprah: CPU is not un-conditionally halted when trying to flash the target.
+- @mtnpke: Detailed log handler logs now strip extra trailing whitespace.
+
+### Fixed
+- @hkpeprah: Fixed a bug where `.flash()` raised a `JLinkEraseException`, now raises a
+  `JLinkFlashException()` as expected.
+- @omrisarig13: Fixed broken links in `README.md`.
+
 ## [1.6.0]
 ### Added
 - @tianxiaoMCU: Added APIs to write to the peripheral register of the connected
