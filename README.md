@@ -7,7 +7,7 @@ Python interface for the SEGGER J-Link.
 
 ## Requirements
 
-- [Python >= 2.7](https://www.python.org/downloads/)
+- [Python >= 3.7](https://www.python.org/downloads/)
 - [GNU ARM Embedded Toolchain](https://launchpad.net/gcc-arm-embedded) (for functional tests)
 - [SEGGER J-Link Tools >= 6.0b](https://www.segger.com/downloads/jlink)
 

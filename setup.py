@@ -290,5 +290,7 @@ setuptools.setup(
         'clean': CleanCommand,
         'coverage': CoverageCommand,
         'bddtest': BDDTestCommand
-    }
+    },
+
+    python_requires='>=3.0',
 )

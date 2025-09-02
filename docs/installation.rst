@@ -10,8 +10,9 @@ Installation
 
 .. note::
 
-   This library is known to support Python versions 2.4 - 2.7.  Support for
-   versions higher than 2.7 is not guaranteed.
+   This library is known to support Python versions 3.7 - 3.9.  Support for
+   versions higher than 3.9 is not guaranteed. As of version 2.0, support for
+   Python 2.X is no longer available.
 
 Basic Installation
 ------------------

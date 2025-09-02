@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.0.0]
+### Changed
+- Python 2 is no longer supported.
+- @concatime: File paths are now encoded using `os.fsencode()` to support UTF-8
+  file paths.
+
 ## [1.7.0]
 ### Added
 - @hkpeprah: Added JTAG APIs:
