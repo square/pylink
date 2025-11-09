@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+### Added
+- @fxd0h: Added `search_ranges` parameter to `rtt_start()` to specify custom RTT search ranges (Issue #209)
+- @fxd0h: Added `reset_before_start` parameter to `rtt_start()` for devices requiring reset before RTT
+- @fxd0h: Auto-generate RTT search ranges from device RAM info when available (Issue #249)
+
+### Fixed
+- @fxd0h: Improved RTT auto-detection reliability with polling mechanism
+- @fxd0h: Ensure device is running before starting RTT (fixes Issue #249)
+
 ## [2.0.0]
 ### Changed
 - Python 2 is no longer supported.

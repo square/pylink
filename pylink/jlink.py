@@ -5277,12 +5277,18 @@ class JLink(object):
 ###############################################################################
 
     @open_required
-    def rtt_start(self, block_address=None):
+    def rtt_start(self, block_address=None, search_ranges=None, reset_before_start=False):
         """Starts RTT processing, including background read of target data.
 
         Args:
           self (JLink): the ``JLink`` instance
-          block_address (int): optional configuration address for the RTT block
+          block_address (int, optional): Optional configuration address for the RTT block.
+            If None, auto-detection will be attempted first.
+          search_ranges (List[Tuple[int, int]], optional): Optional list of (start, end)
+            address ranges to search for RTT control block. Uses SetRTTSearchRanges command.
+            Example: [(0x20000000, 0x20010000)]
+          reset_before_start (bool, optional): If True, reset the device before starting RTT.
+            Default: False
 
         Returns:
           ``None``
@@ -5290,11 +5296,98 @@ class JLink(object):
         Raises:
           JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
+        # Reset if requested
+        if reset_before_start and self.target_connected():
+            try:
+                self.reset(ms=1)
+                time.sleep(0.1)
+            except Exception:
+                pass
+        
+        # Ensure device is running (RTT requires running CPU)
+        # Note: RTT Viewer works without explicit connection checks, so we'll be lenient
+        # Try to resume device if we can detect it's halted, but don't fail if we can't check
+        try:
+            is_connected = self._dll.JLINKARM_IsConnected()
+            if is_connected:
+                is_halted = self._dll.JLINKARM_IsHalted()
+                if is_halted == 1:  # Device is halted
+                    self._dll.JLINKARM_Go()
+                    time.sleep(1.0)
+        except Exception:
+            # If we can't check, assume device is running (RTT Viewer works)
+            pass
+        
+        # Wait a bit for device to stabilize
+        time.sleep(0.5)
+        
+        # Set search ranges if provided or if we can derive from device info
+        if search_ranges:
+            for start_addr, end_addr in search_ranges:
+                try:
+                    self.exec_command(f"SetRTTSearchRanges {start_addr:X} {end_addr:X}")
+                    time.sleep(0.1)  # Small delay between commands
+                except Exception:
+                    pass
+        elif hasattr(self, '_device') and self._device and hasattr(self._device, 'RAMAddr'):
+            # Auto-generate search ranges from device RAM info (from J-Link API)
+            ram_start = self._device.RAMAddr
+            ram_size = self._device.RAMSize if hasattr(self._device, 'RAMSize') else None
+            
+            if ram_size:
+                # Use the full RAM range (like RTT Viewer does)
+                ram_end = ram_start + ram_size - 1
+                try:
+                    self.exec_command(f"SetRTTSearchRanges {ram_start:X} {ram_end:X}")
+                    time.sleep(0.1)
+                except Exception:
+                    pass
+            else:
+                # Fallback: use common 64KB range
+                try:
+                    self.exec_command(f"SetRTTSearchRanges {ram_start:X} {ram_start + 0xFFFF:X}")
+                    time.sleep(0.1)
+                except Exception:
+                    pass
+        
+        # Start RTT
         config = None
         if block_address is not None:
             config = structs.JLinkRTTerminalStart()
             config.ConfigBlockAddress = block_address
+        
         self.rtt_control(enums.JLinkRTTCommand.START, config)
+        
+        # Wait a bit after START command before polling (RTT needs time to initialize)
+        time.sleep(1.0)
+        
+        # Poll for RTT to be ready (some devices need time for auto-detection)
+        # This gives the J-Link library time to find the RTT control block
+        max_wait = 10.0  # Increased timeout
+        start_time = time.time()
+        wait_interval = 0.1
+        
+        while (time.time() - start_time) < max_wait:
+            time.sleep(wait_interval)
+            try:
+                if self.rtt_get_num_up_buffers() > 0:
+                    return  # Success - RTT control block found
+            except errors.JLinkRTTException:
+                # RTT control block not found yet, continue waiting
+                wait_interval = min(wait_interval * 1.5, 0.5)
+                continue
+        
+        # If we get here and block_address was specified, raise exception
+        # For auto-detection, the exception will be raised by rtt_get_num_up_buffers
+        # when called by the user, so we don't raise here to allow fallback strategies
+        if block_address is not None:
+            try:
+                self.rtt_stop()
+            except:
+                pass
+            raise errors.JLinkRTTException(
+                enums.JLinkRTTErrors.RTT_ERROR_CONTROL_BLOCK_NOT_FOUND
+            )
 
     @open_required
     def rtt_stop(self):
