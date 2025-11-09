@@ -5296,39 +5296,71 @@ class JLink(object):
         Raises:
           JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
+        # Stop RTT if it's already running (to ensure clean state)
+        # Multiple stops ensure RTT is fully stopped and ranges are cleared
+        for _ in range(3):
+            try:
+                self.rtt_stop()
+                time.sleep(0.1)
+            except Exception:
+                pass
+        time.sleep(0.3)  # Wait for RTT to fully stop before proceeding
+        
+        # Ensure device is properly configured for RTT auto-detection
+        # According to SEGGER KB, Device name must be set correctly before RTT start
+        # The connect() method already sets this, but we verify it's set
+        if hasattr(self, '_device') and self._device:
+            try:
+                # Re-confirm device is set (helps with auto-detection)
+                device_name = self._device.name
+                self.exec_command(f'Device = {device_name}')
+                time.sleep(0.1)  # Brief wait after device command
+            except Exception:
+                pass
+        
         # Reset if requested
         if reset_before_start and self.target_connected():
             try:
                 self.reset(ms=1)
-                time.sleep(0.1)
+                time.sleep(0.5)  # Wait after reset for device to stabilize
             except Exception:
                 pass
         
         # Ensure device is running (RTT requires running CPU)
-        # Note: RTT Viewer works without explicit connection checks, so we'll be lenient
-        # Try to resume device if we can detect it's halted, but don't fail if we can't check
+        # RTT Viewer works without manipulating device state, so we do the same
+        # Only resume if we're absolutely certain the device is halted (== 1)
+        # Don't interfere if state is ambiguous (-1) - trust that device is running
         try:
-            is_connected = self._dll.JLINKARM_IsConnected()
-            if is_connected:
-                is_halted = self._dll.JLINKARM_IsHalted()
-                if is_halted == 1:  # Device is halted
-                    self._dll.JLINKARM_Go()
-                    time.sleep(1.0)
+            is_halted = self._dll.JLINKARM_IsHalted()
+            if is_halted == 1:  # Device is definitely halted
+                self._dll.JLINKARM_Go()
+                time.sleep(0.3)  # Brief wait after resume
+            # If is_halted == 0, device is running - do nothing
+            # If is_halted == -1, state is ambiguous - assume running (like RTT Viewer)
         except Exception:
-            # If we can't check, assume device is running (RTT Viewer works)
+            # If we can't check state, don't interfere - assume device is running
             pass
         
-        # Wait a bit for device to stabilize
-        time.sleep(0.5)
-        
         # Set search ranges if provided or if we can derive from device info
-        if search_ranges:
-            for start_addr, end_addr in search_ranges:
-                try:
-                    self.exec_command(f"SetRTTSearchRanges {start_addr:X} {end_addr:X}")
-                    time.sleep(0.1)  # Small delay between commands
-                except Exception:
-                    pass
+        # IMPORTANT: SetRTTSearchRanges must be called BEFORE rtt_control(START)
+        # and RTT must be stopped (we did that above)
+        # NOTE: According to UM08001, SetRTTSearchRanges expects (start_address, size) format
+        # Note: Calling SetRTTSearchRanges without parameters may add a default range,
+        # so we don't clear ranges - we just set the correct one which should replace previous ranges
+        if search_ranges and len(search_ranges) > 0:
+            # Use only the first range (J-Link typically uses one range for RTT search)
+            start_addr, end_addr = search_ranges[0]
+            try:
+                # Convert (start, end) to (start, size) as per UM08001 documentation
+                start_addr = int(start_addr) & 0xFFFFFFFF
+                end_addr = int(end_addr) & 0xFFFFFFFF
+                size = end_addr - start_addr + 1
+                size = size & 0xFFFFFFFF
+                cmd = f"SetRTTSearchRanges {start_addr:X} {size:X}"
+                self.exec_command(cmd)
+                time.sleep(0.3)  # Wait longer after setting search ranges
+            except Exception:
+                pass
         elif hasattr(self, '_device') and self._device and hasattr(self._device, 'RAMAddr'):
             # Auto-generate search ranges from device RAM info (from J-Link API)
             ram_start = self._device.RAMAddr
@@ -5336,16 +5368,22 @@ class JLink(object):
             
             if ram_size:
                 # Use the full RAM range (like RTT Viewer does)
-                ram_end = ram_start + ram_size - 1
+                # SetRTTSearchRanges expects (start, size) format per UM08001
                 try:
-                    self.exec_command(f"SetRTTSearchRanges {ram_start:X} {ram_end:X}")
+                    ram_start = int(ram_start) & 0xFFFFFFFF
+                    ram_size = int(ram_size) & 0xFFFFFFFF
+                    cmd = f"SetRTTSearchRanges {ram_start:X} {ram_size:X}"
+                    self.exec_command(cmd)
                     time.sleep(0.1)
                 except Exception:
                     pass
             else:
                 # Fallback: use common 64KB range
                 try:
-                    self.exec_command(f"SetRTTSearchRanges {ram_start:X} {ram_start + 0xFFFF:X}")
+                    ram_start = int(ram_start) & 0xFFFFFFFF
+                    fallback_size = 0x10000  # 64KB
+                    cmd = f"SetRTTSearchRanges {ram_start:X} {fallback_size:X}"
+                    self.exec_command(cmd)
                     time.sleep(0.1)
                 except Exception:
                     pass
@@ -5358,22 +5396,31 @@ class JLink(object):
         
         self.rtt_control(enums.JLinkRTTCommand.START, config)
         
-        # Wait a bit after START command before polling (RTT needs time to initialize)
-        time.sleep(1.0)
+        # Wait after START command before polling
+        # Some devices need more time for RTT to initialize and find the control block
+        time.sleep(0.5)
         
         # Poll for RTT to be ready (some devices need time for auto-detection)
-        # This gives the J-Link library time to find the RTT control block
-        max_wait = 10.0  # Increased timeout
+        # RTT Viewer waits patiently, so we do the same
+        max_wait = 10.0
         start_time = time.time()
-        wait_interval = 0.1
+        wait_interval = 0.05  # Start with shorter intervals for faster detection
         
         while (time.time() - start_time) < max_wait:
             time.sleep(wait_interval)
             try:
-                if self.rtt_get_num_up_buffers() > 0:
-                    return  # Success - RTT control block found
+                num_buffers = self.rtt_get_num_up_buffers()
+                if num_buffers > 0:
+                    # Found buffers, verify they persist
+                    time.sleep(0.1)  # Brief verification delay
+                    try:
+                        num_buffers_check = self.rtt_get_num_up_buffers()
+                        if num_buffers_check > 0:
+                            return  # Success - RTT control block found and stable
+                    except errors.JLinkRTTException:
+                        continue
             except errors.JLinkRTTException:
-                # RTT control block not found yet, continue waiting
+                # Exponential backoff, but cap at reasonable maximum
                 wait_interval = min(wait_interval * 1.5, 0.5)
                 continue
         
