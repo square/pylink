@@ -1,96 +1,61 @@
-# Análisis y Solución para Issue #151: USB JLink selection by Serial Number
+# Analysis and Solution for Issue #151: USB JLink Selection by Serial Number
 
-## Problema Actual
+## Current Problem
 
-Según el [issue #151](https://github.com/square/pylink/issues/151):
+According to [issue #151](https://github.com/square/pylink/issues/151):
 
-1. **Comportamiento actual**:
-   - `JLink(serial_no=X)` guarda el serial_no pero **no lo valida**
-   - Si llamas `open()` sin parámetros, usa el primer J-Link disponible (no el especificado)
-   - Solo valida cuando pasas `serial_no` explícitamente a `open()`
+1. **Current behavior**:
+   - `JLink(serial_no=X)` stores the serial_no but **does not validate it**
+   - If you call `open()` without parameters, it uses the first available J-Link (not the specified one)
+   - Only validates when you pass `serial_no` explicitly to `open()`
 
-2. **Problema**:
+2. **Problem**:
    ```python
-   dbg = pylink.jlink.JLink(serial_no=600115433)  # Serial esperado
-   dbg.open()  # ❌ Usa cualquier J-Link disponible, no valida el serial_no
-   dbg.serial_number  # Retorna 600115434 (diferente al esperado)
+   dbg = pylink.jlink.JLink(serial_no=600115433)  # Expected serial
+   dbg.open()  # ❌ Uses any available J-Link, does not validate serial_no
+   dbg.serial_number  # Returns 600115434 (different from expected)
    ```
 
-## Análisis del Código Actual
+## Current Code Analysis
 
-### Flujo Actual:
+### Current Flow:
 
-1. **`__init__()`** (línea 250-333):
-   - Guarda `serial_no` en `self.__serial_no` (línea 329)
-   - **No valida** si el serial existe
+1. **`__init__()`** (line 250-333):
+   - Stores `serial_no` in `self.__serial_no` (line 329)
+   - **Does not validate** if the serial exists
 
-2. **`open()`** (línea 683-759):
-   - Si `serial_no` es `None` y `ip_addr` es `None` → usa `JLINKARM_SelectUSB(0)` (línea 732)
-   - **No usa** `self.__serial_no` si `serial_no` es `None`
-   - Solo valida si pasas `serial_no` explícitamente (línea 723-726)
+2. **`open()`** (line 683-759):
+   - If `serial_no` is `None` and `ip_addr` is `None` → uses `JLINKARM_SelectUSB(0)` (line 732)
+   - **Does not use** `self.__serial_no` if `serial_no` is `None`
+   - Only validates if you pass `serial_no` explicitly (line 723-726)
 
-3. **`__enter__()`** (línea 357-374):
-   - Usa `self.__serial_no` correctamente (línea 371)
-   - Pero solo cuando se usa como context manager
+3. **`__enter__()`** (line 357-374):
+   - Uses `self.__serial_no` correctly (line 371)
+   - But only when used as a context manager
 
-# Análisis y Solución para Issue #151: USB JLink selection by Serial Number
+## Maintainer Comments
 
-## Problema Actual
-
-Según el [issue #151](https://github.com/square/pylink/issues/151):
-
-1. **Comportamiento actual**:
-   - `JLink(serial_no=X)` guarda el serial_no pero **no lo valida**
-   - Si llamas `open()` sin parámetros, usa el primer J-Link disponible (no el especificado)
-   - Solo valida cuando pasas `serial_no` explícitamente a `open()`
-
-2. **Problema**:
-   ```python
-   dbg = pylink.jlink.JLink(serial_no=600115433)  # Serial esperado
-   dbg.open()  # ❌ Usa cualquier J-Link disponible, no valida el serial_no
-   dbg.serial_number  # Retorna 600115434 (diferente al esperado)
-   ```
-
-## Análisis del Código Actual
-
-### Flujo Actual:
-
-1. **`__init__()`** (línea 250-333):
-   - Guarda `serial_no` en `self.__serial_no` (línea 329)
-   - **No valida** si el serial existe
-
-2. **`open()`** (línea 683-759):
-   - Si `serial_no` es `None` y `ip_addr` es `None` → usa `JLINKARM_SelectUSB(0)` (línea 732)
-   - **No usa** `self.__serial_no` si `serial_no` es `None`
-   - Solo valida si pasas `serial_no` explícitamente (línea 723-726)
-
-3. **`__enter__()`** (línea 357-374):
-   - Usa `self.__serial_no` correctamente (línea 371)
-   - Pero solo cuando se usa como context manager
-
-## Comentarios del Maintainer
-
-Según los comentarios en el issue, el maintainer (`hkpeprah`) indica:
+According to comments in the issue, the maintainer (`hkpeprah`) indicates:
 
 > "These lines here will fail if the device doesn't exist and raise an exception: 
 > https://github.com/square/pylink/blob/master/pylink/jlink.py#L712-L733
 > 
 > So I think we can avoid the cost of an additional query."
 
-**Conclusión**: No necesitamos hacer queries adicionales porque:
-- `JLINKARM_EMU_SelectByUSBSN()` ya valida y falla si el dispositivo no existe (retorna < 0)
-- No necesitamos verificar con `connected_emulators()` o `JLINKARM_GetSN()` después de abrir
+**Conclusion**: We do not need to perform additional queries because:
+- `JLINKARM_EMU_SelectByUSBSN()` already validates and fails if the device does not exist (returns < 0)
+- We do not need to verify with `connected_emulators()` or `JLINKARM_GetSN()` after opening
 
-## Solución Recomendada: Opción 1 (Simple) ⭐ **RECOMENDADA**
+## Recommended Solution: Option 1 (Simple) ⭐ **RECOMMENDED**
 
-**Ventajas**:
-- ✅ **Evita additional query** (como quiere el maintainer)
-- ✅ Mantiene backward compatibility
-- ✅ Resuelve el problema directamente
-- ✅ Consistente con el comportamiento del context manager
-- ✅ Cambios mínimos
+**Advantages**:
+- ✅ **Avoids additional query** (as maintainer requested)
+- ✅ Maintains backward compatibility
+- ✅ Directly solves the problem
+- ✅ Consistent with context manager behavior
+- ✅ Minimal changes
 
-**Implementación**:
+**Implementation**:
 ```python
 def open(self, serial_no=None, ip_addr=None):
     """Connects to the J-Link emulator (defaults to USB).
@@ -118,11 +83,11 @@ def open(self, serial_no=None, ip_addr=None):
 
     self.close()
 
-    # ⭐ NUEVO: Si serial_no no se proporciona pero se especificó en __init__, usarlo
+    # ⭐ NEW: If serial_no not provided but specified in __init__, use it
     if serial_no is None and ip_addr is None:
         serial_no = self.__serial_no
     
-    # ⭐ NUEVO: También para ip_addr (consistencia)
+    # ⭐ NEW: Also for ip_addr (consistency)
     if ip_addr is None:
         ip_addr = self.__ip_addr
 
@@ -136,7 +101,7 @@ def open(self, serial_no=None, ip_addr=None):
             self._dll.JLINKARM_EMU_SelectIPBySN(int(serial_no))
 
     elif serial_no is not None:
-        # Esta llamada ya valida y falla si el serial no existe (retorna < 0)
+        # This call already validates and fails if serial does not exist (returns < 0)
         result = self._dll.JLINKARM_EMU_SelectByUSBSN(int(serial_no))
         if result < 0:
             raise errors.JLinkException('No emulator with serial number %s found.' % serial_no)
@@ -146,94 +111,93 @@ def open(self, serial_no=None, ip_addr=None):
         if result != 0:
             raise errors.JlinkException('Could not connect to default emulator.')
 
-    # ... resto del código sin cambios ...
+    # ... rest of code unchanged ...
 ```
 
-**Cambios mínimos**: Solo añadir 3 líneas al inicio de `open()` para usar `self.__serial_no` y `self.__ip_addr` cuando no se proporcionan.
+**Minimal changes**: Only add 3 lines at the beginning of `open()` to use `self.__serial_no` and `self.__ip_addr` when not provided.
 
 ---
 
-## Comportamiento de la Solución
+## Solution Behavior
 
-### Casos de Uso:
+### Use Cases:
 
-1. **Serial en `__init__()`, `open()` sin parámetros**:
+1. **Serial in `__init__()`, `open()` without parameters**:
    ```python
    jlink = JLink(serial_no=600115433)
-   jlink.open()  # ✅ Usa serial 600115433, valida automáticamente
+   jlink.open()  # ✅ Uses serial 600115433, validates automatically
    ```
 
-2. **Serial en `__init__()`, `open()` con serial diferente**:
+2. **Serial in `__init__()`, `open()` with different serial**:
    ```python
    jlink = JLink(serial_no=600115433)
-   jlink.open(serial_no=600115434)  # ✅ Usa 600115434 (parámetro tiene precedencia)
+   jlink.open(serial_no=600115434)  # ✅ Uses 600115434 (parameter has precedence)
    ```
 
-3. **Sin serial en `__init__()`**:
+3. **No serial in `__init__()`**:
    ```python
    jlink = JLink()
-   jlink.open()  # ✅ Comportamiento original (primer J-Link disponible)
+   jlink.open()  # ✅ Original behavior (first available J-Link)
    ```
 
-4. **Serial no existe**:
+4. **Serial does not exist**:
    ```python
    jlink = JLink(serial_no=999999999)
-   jlink.open()  # ✅ Lanza JLinkException: "No emulator with serial number 999999999 found"
+   jlink.open()  # ✅ Raises JLinkException: "No emulator with serial number 999999999 found"
    ```
 
 ---
 
-## Ventajas de Esta Solución
+## Advantages of This Solution
 
-1. ✅ **Sin additional queries**: Confía en la validación de `JLINKARM_EMU_SelectByUSBSN()`
-2. ✅ **Backward compatible**: Si no pasas serial_no, funciona igual que antes
-3. ✅ **Consistente**: Mismo comportamiento que context manager (`__enter__()`)
-4. ✅ **Simple**: Solo 3 líneas de código
-5. ✅ **Eficiente**: No hace queries innecesarias
+1. ✅ **No additional queries**: Relies on validation from `JLINKARM_EMU_SelectByUSBSN()`
+2. ✅ **Backward compatible**: If you don't pass serial_no, works the same as before
+3. ✅ **Consistent**: Same behavior as context manager (`__enter__()`)
+4. ✅ **Simple**: Only 3 lines of code
+5. ✅ **Efficient**: Does not perform unnecessary queries
 
 ---
 
-## Consideración: Conflicto entre Constructor y open()
+## Consideration: Conflict between Constructor and open()
 
-**Pregunta**: ¿Qué pasa si pasas serial_no diferente en `__init__()` y `open()`?
+**Question**: What happens if you pass different serial_no in `__init__()` and `open()`?
 
-**Respuesta**: El parámetro de `open()` tiene precedencia (comportamiento esperado):
+**Answer**: The `open()` parameter has precedence (expected behavior):
 ```python
 jlink = JLink(serial_no=600115433)
-jlink.open(serial_no=600115434)  # Usa 600115434
+jlink.open(serial_no=600115434)  # Uses 600115434
 ```
 
-Esto es consistente con cómo funcionan los parámetros opcionales en Python: el parámetro explícito tiene precedencia sobre el valor por defecto.
+This is consistent with how optional parameters work in Python: the explicit parameter has precedence over the default value.
 
 ---
 
-## Implementación Final
+## Final Implementation
 
-**Archivo**: `pylink/jlink.py`  
-**Método**: `open()` (línea 683)  
-**Cambios**: Añadir 3 líneas después de `self.close()`
+**File**: `pylink/jlink.py`  
+**Method**: `open()` (line 683)  
+**Changes**: Add 3 lines after `self.close()`
 
 ```python
-# Línea ~712 (después de self.close())
-# Si serial_no no se proporciona pero se especificó en __init__, usarlo
+# Line ~712 (after self.close())
+# If serial_no not provided but specified in __init__, use it
 if serial_no is None and ip_addr is None:
     serial_no = self.__serial_no
 
-# También para ip_addr (consistencia)
+# Also for ip_addr (consistency)
 if ip_addr is None:
     ip_addr = self.__ip_addr
 ```
 
-**Tiempo estimado**: 30 minutos (implementación + tests)
+**Estimated time**: 30 minutes (implementation + tests)
 
 ---
 
-## Conclusión
+## Conclusion
 
-**Solución**: **Opción 1 (Simple)** - Solo usar `self.__serial_no` cuando `serial_no` es None
+**Solution**: **Option 1 (Simple)** - Only use `self.__serial_no` when `serial_no` is None
 
-- ✅ Evita additional queries (como quiere el maintainer)
-- ✅ Resuelve el problema completamente
-- ✅ Cambios mínimos y seguros
+- ✅ Avoids additional queries (as maintainer requested)
+- ✅ Completely solves the problem
+- ✅ Minimal and safe changes
 - ✅ Backward compatible
-
