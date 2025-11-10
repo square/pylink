@@ -70,6 +70,19 @@ class JLink(object):
     # Maximum number of methods of debug entry at a single time.
     MAX_NUM_MOES = 8
 
+    # Informational message patterns returned by some J-Link commands in err_buf
+    # even when successful. These should not be treated as errors.
+    _INFORMATIONAL_MESSAGE_PATTERNS = [
+        'RTT Telnet Port set to',
+        'Device selected',
+        'Device =',
+        'Speed =',
+        'Target interface set to',
+        'Target voltage',
+        'Reset delay',
+        'Reset type',
+    ]
+
     def minimum_required(version):
         """Decorator to specify the minimum SDK version required.
 
@@ -975,6 +988,12 @@ class JLink(object):
         Raises:
           JLinkException: if the command is invalid or fails.
 
+        Note:
+          Some commands return informational messages in the error buffer even
+          when successful (e.g., "RTT Telnet Port set to 19021"). These are
+          automatically detected and not treated as errors, but are logged at
+          DEBUG level.
+
         See Also:
           For a full list of the supported commands, please see the SEGGER
           J-Link documentation,
@@ -985,9 +1004,24 @@ class JLink(object):
         err_buf = ctypes.string_at(err_buf).decode()
 
         if len(err_buf) > 0:
-            # This is how they check for error in the documentation, so check
-            # this way as well.
-            raise errors.JLinkException(err_buf.strip())
+            err_msg = err_buf.strip()
+            
+            # Check if this is an informational message, not an error.
+            # Some J-Link commands return informational messages in err_buf even
+            # when successful (e.g., "RTT Telnet Port set to 19021").
+            is_informational = any(
+                pattern.lower() in err_msg.lower()
+                for pattern in self._INFORMATIONAL_MESSAGE_PATTERNS
+            )
+            
+            if is_informational:
+                # Log at debug level but don't raise exception
+                logger.debug('J-Link informational message: %s', err_msg)
+            else:
+                # This appears to be a real error
+                # This is how they check for error in the documentation, so check
+                # this way as well.
+                raise errors.JLinkException(err_msg)
 
         return res
 
