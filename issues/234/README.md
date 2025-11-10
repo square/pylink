@@ -214,3 +214,5 @@ def rtt_write(self, buffer_index, data):
 
 **Potential improvement**: Add validation and better error messages in `rtt_write()` to help diagnose this common issue.
 
+
+
