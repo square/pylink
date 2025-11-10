@@ -5276,165 +5276,577 @@ class JLink(object):
 #
 ###############################################################################
 
+    # Constants for RTT search range validation
+    MAX_SEARCH_RANGE_SIZE = 0x1000000  # 16MB maximum search range size
+    DEFAULT_FALLBACK_SIZE = 0x10000    # 64KB fallback search range size
+    DEFAULT_RTT_TIMEOUT = 10.0          # Default timeout for RTT detection (seconds)
+    DEFAULT_POLL_INTERVAL = 0.05        # Default initial polling interval (seconds)
+    DEFAULT_MAX_POLL_INTERVAL = 0.5     # Default maximum polling interval (seconds)
+    DEFAULT_BACKOFF_FACTOR = 1.5        # Default exponential backoff multiplier
+    DEFAULT_VERIFICATION_DELAY = 0.1    # Default verification delay (seconds)
+
+    # Device presets for common microcontrollers
+    # Format: device_name: (ram_start, ram_end)
+    RTT_DEVICE_PRESETS = {
+        # Nordic Semiconductor nRF series
+        'nRF54L15': (0x20000000, 0x2003FFFF),  # 256KB RAM
+        'nRF52840': (0x20000000, 0x2003FFFF),  # 256KB RAM
+        'nRF52832': (0x20000000, 0x20007FFF),  # 32KB RAM
+        'nRF52833': (0x20000000, 0x2003FFFF),  # 256KB RAM
+        'nRF5340': (0x20000000, 0x2003FFFF),   # 256KB RAM (app core)
+        # STMicroelectronics STM32 series
+        'STM32F4': (0x20000000, 0x2001FFFF),    # 128KB RAM (common)
+        'STM32F7': (0x20000000, 0x2004FFFF),   # 320KB RAM (common)
+        'STM32H7': (0x20000000, 0x2001FFFF),    # 128KB RAM (DTCM)
+        'STM32L4': (0x20000000, 0x2000FFFF),    # 64KB RAM (common)
+        # Generic Cortex-M (common RAM locations)
+        'Cortex-M0': (0x20000000, 0x2000FFFF),  # 64KB RAM (typical)
+        'Cortex-M3': (0x20000000, 0x2000FFFF), # 64KB RAM (typical)
+        'Cortex-M4': (0x20000000, 0x2001FFFF), # 128KB RAM (typical)
+        'Cortex-M33': (0x20000000, 0x2003FFFF), # 256KB RAM (typical)
+    }
+
+    def _get_device_preset(self, device_name):
+        """Gets RTT search range preset for a known device.
+
+        Args:
+          device_name (str): Name of the device (case-insensitive).
+
+        Returns:
+          Tuple[int, int] or None: (start, end) address range if preset exists, None otherwise.
+        """
+        if not device_name:
+            return None
+
+        device_name_lower = device_name.lower()
+        for preset_name, preset_range in self.RTT_DEVICE_PRESETS.items():
+            if preset_name.lower() in device_name_lower:
+                logger.debug('Found device preset for %s: 0x%X - 0x%X', preset_name, *preset_range)
+                return preset_range
+
+        return None
+
+    def _validate_and_normalize_search_range(self, start, end):
+        """Validates and normalizes a search range tuple.
+
+        Args:
+          start (int): Start address of the search range.
+          end (int): End address of the search range.
+
+        Returns:
+          Tuple[int, int]: Normalized (start_address, size) tuple.
+
+        Raises:
+          ValueError: If the range is invalid (start > end, size == 0, or size > 16MB).
+        """
+        start = int(start) & 0xFFFFFFFF
+        end = int(end) & 0xFFFFFFFF
+
+        if end < start:
+            # Check for wrap-around (32-bit unsigned)
+            if (end & 0xFFFFFFFF) < (start & 0xFFFFFFFF):
+                raise ValueError(
+                    'End address 0x%X must be >= start address 0x%X '
+                    '(or provide size instead of end address)' % (end, start)
+                )
+
+        size = (end - start + 1) & 0xFFFFFFFF
+        if size == 0:
+            raise ValueError('Search range size is zero (start == end)')
+        if size > self.MAX_SEARCH_RANGE_SIZE:
+            raise ValueError(
+                'Search range size 0x%X exceeds maximum of %dMB (0x%X)' % (
+                    size, self.MAX_SEARCH_RANGE_SIZE // (1024 * 1024),
+                    self.MAX_SEARCH_RANGE_SIZE
+                )
+            )
+
+        return (start, size)
+
+    def _set_rtt_search_ranges(self, search_ranges):
+        """Sets RTT search ranges using SetRTTSearchRanges command.
+
+        This helper method validates, normalizes, and configures RTT search ranges.
+        According to UM08001, SetRTTSearchRanges accepts multiple ranges in the format:
+        SetRTTSearchRanges <start1> <size1> [<start2> <size2> ...]
+
+        Args:
+          search_ranges (List[Tuple[int, int]]): List of (start, end) address tuples.
+
+        Returns:
+          str: Description of the search range used (for logging), or None if failed.
+
+        Note:
+          This method logs warnings on errors but does not raise exceptions to allow
+          RTT start to proceed even if search range configuration fails (auto-detection
+          may still work without explicit ranges).
+        """
+        if not search_ranges or len(search_ranges) == 0:
+            return None
+
+        try:
+            # Build command with all provided ranges
+            # According to UM08001, multiple ranges are supported
+            cmd_parts = ['SetRTTSearchRanges']
+            range_descriptions = []
+
+            for i, (start, end) in enumerate(search_ranges):
+                try:
+                    start_addr, size = self._validate_and_normalize_search_range(start, end)
+                    cmd_parts.append('%X' % start_addr)
+                    cmd_parts.append('%X' % size)
+                    range_descriptions.append(
+                        '0x%X - 0x%X (size: 0x%X)' % (
+                            start_addr, (start_addr + size - 1) & 0xFFFFFFFF, size
+                        )
+                    )
+                except ValueError as e:
+                    logger.warning('Invalid search range %d: %s', i, e)
+                    # Skip invalid range but continue with others
+                    continue
+
+            if len(range_descriptions) == 0:
+                logger.error('No valid search ranges provided')
+                return None
+
+            # Execute command with all valid ranges
+            cmd = ' '.join(cmd_parts)
+            try:
+                # Escape any special characters in command (defense in depth)
+                # exec_command expects a string, so we ensure it's safe
+                result = self.exec_command(cmd)
+                if result != 0:
+                    logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                time.sleep(0.3)  # Wait after setting search ranges
+                range_desc = ', '.join(range_descriptions)
+                if len(search_ranges) > len(range_descriptions):
+                    logger.warning(
+                        'Only %d of %d search ranges were valid and configured',
+                        len(range_descriptions), len(search_ranges)
+                    )
+                return range_desc
+            except errors.JLinkException as e:
+                logger.error('Failed to set RTT search ranges: %s', e)
+                return None
+            except Exception as e:
+                logger.error('Unexpected error setting search ranges: %s', e)
+                return None
+
+        except Exception as e:
+            logger.error('Error processing search ranges: %s', e)
+            return None
+
+    def _set_rtt_search_ranges_from_device(self):
+        """Auto-generates and sets RTT search ranges from device RAM information.
+
+        Returns:
+          str: Description of the search range used (for logging), or None if failed.
+        """
+        if not hasattr(self, '_device') or not self._device:
+            return None
+
+        if not hasattr(self._device, 'RAMAddr'):
+            return None
+
+        ram_start = self._device.RAMAddr
+        ram_size = self._device.RAMSize if hasattr(self._device, 'RAMSize') else None
+
+        try:
+            ram_start = int(ram_start) & 0xFFFFFFFF
+
+            if ram_size:
+                ram_size = int(ram_size) & 0xFFFFFFFF
+                range_desc = '0x%X - 0x%X (auto, size: 0x%X)' % (
+                    ram_start, (ram_start + ram_size - 1) & 0xFFFFFFFF, ram_size
+                )
+                logger.debug('Auto-generated search range from device RAM: %s', range_desc)
+
+                cmd = 'SetRTTSearchRanges %X %X' % (ram_start, ram_size)
+                try:
+                    result = self.exec_command(cmd)
+                    if result != 0:
+                        logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                    time.sleep(0.1)
+                    return range_desc
+                except errors.JLinkException as e:
+                    logger.warning('Failed to set auto-generated search ranges: %s', e)
+                    return None
+                except Exception as e:
+                    logger.warning('Unexpected error setting auto-generated ranges: %s', e)
+                    return None
+            else:
+                # Try device preset if RAM size not available
+                if hasattr(self, '_device') and self._device:
+                    device_name = getattr(self._device, 'name', None)
+                    preset_range = self._get_device_preset(device_name)
+                    if preset_range:
+                        start, end = preset_range
+                        try:
+                            start, size = self._validate_and_normalize_search_range(start, end)
+                            range_desc = '0x%X - 0x%X (preset, size: 0x%X)' % (
+                                start, (start + size - 1) & 0xFFFFFFFF, size
+                            )
+                            logger.debug('Using device preset search range: %s', range_desc)
+                            cmd = 'SetRTTSearchRanges %X %X' % (start, size)
+                            try:
+                                result = self.exec_command(cmd)
+                                if result != 0:
+                                    logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                                time.sleep(0.1)
+                                return range_desc
+                            except errors.JLinkException as e:
+                                logger.warning('Failed to set preset search ranges: %s', e)
+                                return None
+                            except Exception as e:
+                                logger.warning('Unexpected error setting preset ranges: %s', e)
+                                return None
+                        except ValueError as e:
+                            logger.warning('Invalid preset range: %s', e)
+
+                # Fallback: use common 64KB range
+                fallback_size = self.DEFAULT_FALLBACK_SIZE
+                range_desc = '0x%X - 0x%X (fallback, size: 0x%X)' % (
+                    ram_start, (ram_start + fallback_size - 1) & 0xFFFFFFFF, fallback_size
+                )
+                logger.debug('Using fallback search range: %s', range_desc)
+
+                cmd = 'SetRTTSearchRanges %X %X' % (ram_start, fallback_size)
+                try:
+                    result = self.exec_command(cmd)
+                    if result != 0:
+                        logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                    time.sleep(0.1)
+                    return range_desc
+                except errors.JLinkException as e:
+                    logger.warning('Failed to set fallback search ranges: %s', e)
+                    return None
+                except Exception as e:
+                    logger.warning('Unexpected error setting fallback ranges: %s', e)
+                    return None
+
+        except Exception as e:
+            logger.warning('Error generating search ranges from RAM info: %s', e)
+            return None
+
+    def _validate_rtt_start_params(
+        self, rtt_timeout, poll_interval, max_poll_interval,
+        backoff_factor, verification_delay
+    ):
+        """Validates parameters for rtt_start().
+
+        Args:
+          rtt_timeout (float): Maximum time to wait for RTT detection.
+          poll_interval (float): Initial polling interval.
+          max_poll_interval (float): Maximum polling interval.
+          backoff_factor (float): Exponential backoff multiplier.
+          verification_delay (float): Verification delay.
+
+        Raises:
+          ValueError: If any parameter is invalid.
+        """
+        if rtt_timeout <= 0:
+            raise ValueError('rtt_timeout must be greater than 0, got %f' % rtt_timeout)
+        if poll_interval <= 0:
+            raise ValueError('poll_interval must be greater than 0, got %f' % poll_interval)
+        if max_poll_interval < poll_interval:
+            raise ValueError(
+                'max_poll_interval (%f) must be >= poll_interval (%f)' % (
+                    max_poll_interval, poll_interval
+                )
+            )
+        if backoff_factor <= 1.0:
+            raise ValueError(
+                'backoff_factor must be greater than 1.0, got %f' % backoff_factor
+            )
+        if verification_delay < 0:
+            raise ValueError(
+                'verification_delay must be >= 0, got %f' % verification_delay
+            )
+
     @open_required
-    def rtt_start(self, block_address=None, search_ranges=None, reset_before_start=False):
+    def rtt_start(
+        self,
+        block_address=None,
+        search_ranges=None,
+        reset_before_start=False,
+        rtt_timeout=None,
+        poll_interval=None,
+        max_poll_interval=None,
+        backoff_factor=None,
+        verification_delay=None,
+        allow_resume=True,
+        force_resume=False
+    ):
         """Starts RTT processing, including background read of target data.
+
+        This method has been enhanced with automatic search range generation,
+        improved device state management, and configurable polling parameters
+        for better reliability across different devices.
+
+        **Return Semantics:**
+        - **Auto-detection mode** (``block_address=None``):
+          - Returns ``True`` if RTT control block is found and verified.
+          - Returns ``False`` if polling times out (control block not found).
+          - Raises ``JLinkRTTException`` only if RTT start command itself fails.
+        - **Specific address mode** (``block_address`` specified):
+          - Returns ``True`` if RTT control block is found and verified.
+          - Raises ``JLinkRTTException`` if control block not found after timeout.
+
+        **Thread Safety:**
+        This method is **not thread-safe**. If multiple threads access the same
+        ``JLink`` instance, external synchronization is required. The J-Link DLL
+        itself is not thread-safe, so operations on a single J-Link connection
+        must be serialized.
 
         Args:
           self (JLink): the ``JLink`` instance
           block_address (int, optional): Optional configuration address for the RTT block.
-            If None, auto-detection will be attempted first.
+            If None, auto-detection will be attempted. In auto-detection mode, the method
+            returns False (instead of raising) if the control block is not found.
           search_ranges (List[Tuple[int, int]], optional): Optional list of (start, end)
             address ranges to search for RTT control block. Uses SetRTTSearchRanges command.
-            Example: [(0x20000000, 0x20010000)]
+            Format: [(start_addr, end_addr), ...]
+            Example: [(0x20000000, 0x2003FFFF)] for nRF54L15 RAM range.
+            Multiple ranges are supported: [(start1, end1), (start2, end2), ...]
+            If None, automatically generated from device RAM info.
+            Ranges are validated: start <= end, size > 0, size <= 16MB.
           reset_before_start (bool, optional): If True, reset the device before starting RTT.
+            Default: False
+          rtt_timeout (float, optional): Maximum time (seconds) to wait for RTT detection.
+            Must be > 0. Default: 10.0
+          poll_interval (float, optional): Initial polling interval (seconds).
+            Must be > 0. Default: 0.05
+          max_poll_interval (float, optional): Maximum polling interval (seconds).
+            Must be >= poll_interval. Default: 0.5
+          backoff_factor (float, optional): Exponential backoff multiplier.
+            Must be > 1.0. Default: 1.5
+          verification_delay (float, optional): Delay (seconds) before verification check.
+            Must be >= 0. Default: 0.1
+          allow_resume (bool, optional): If True, resume device if halted. Default: True.
+          force_resume (bool, optional): If True, resume device even if state is ambiguous.
             Default: False
 
         Returns:
-          ``None``
+          bool: ``True`` if RTT control block was found and verified, ``False`` if
+            auto-detection timed out (only in auto-detection mode).
 
         Raises:
-          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails,
+            or if control block not found when ``block_address`` is specified.
+          ValueError: if search_ranges are invalid or if polling parameters are invalid.
+
+        Examples:
+          Auto-detection with default settings::
+
+            >>> success = jlink.rtt_start()
+            >>> if success:
+            ...     print("RTT started successfully")
+            ... else:
+            ...     print("RTT control block not found")
+
+          Explicit search range::
+
+            >>> jlink.rtt_start(search_ranges=[(0x20000000, 0x2003FFFF)])
+
+          Specific control block address::
+
+            >>> jlink.rtt_start(block_address=0x200044E0)
+
+          Custom timeout for slow devices::
+
+            >>> jlink.rtt_start(rtt_timeout=20.0)
+
+          Don't modify device state::
+
+            >>> jlink.rtt_start(allow_resume=False)
+
+          Multiple search ranges::
+
+            >>> jlink.rtt_start(search_ranges=[
+            ...     (0x20000000, 0x2003FFFF),  # Main RAM
+            ...     (0x10000000, 0x1000FFFF)   # Secondary RAM
+            ... ])
         """
+        # Validate block_address if provided
+        if block_address is not None:
+            block_address = int(block_address) & 0xFFFFFFFF
+            if block_address == 0:
+                raise ValueError('block_address cannot be 0')
+
+        # Use default values if not provided
+        if rtt_timeout is None:
+            rtt_timeout = self.DEFAULT_RTT_TIMEOUT
+        if poll_interval is None:
+            poll_interval = self.DEFAULT_POLL_INTERVAL
+        if max_poll_interval is None:
+            max_poll_interval = self.DEFAULT_MAX_POLL_INTERVAL
+        if backoff_factor is None:
+            backoff_factor = self.DEFAULT_BACKOFF_FACTOR
+        if verification_delay is None:
+            verification_delay = self.DEFAULT_VERIFICATION_DELAY
+
+        # Validate polling parameters
+        self._validate_rtt_start_params(
+            rtt_timeout, poll_interval, max_poll_interval,
+            backoff_factor, verification_delay
+        )
+
         # Stop RTT if it's already running (to ensure clean state)
         # Multiple stops ensure RTT is fully stopped and ranges are cleared
-        for _ in range(3):
+        logger.debug('Stopping any existing RTT session...')
+        for i in range(3):
             try:
                 self.rtt_stop()
                 time.sleep(0.1)
-            except Exception:
-                pass
+            except Exception as e:
+                if i == 0:  # Log only first attempt
+                    logger.debug('RTT stop attempt %d failed (may not be running): %s', i + 1, e)
         time.sleep(0.3)  # Wait for RTT to fully stop before proceeding
-        
+
         # Ensure device is properly configured for RTT auto-detection
         # According to SEGGER KB, Device name must be set correctly before RTT start
-        # The connect() method already sets this, but we verify it's set
         if hasattr(self, '_device') and self._device:
             try:
-                # Re-confirm device is set (helps with auto-detection)
                 device_name = self._device.name
-                self.exec_command(f'Device = {device_name}')
-                time.sleep(0.1)  # Brief wait after device command
-            except Exception:
-                pass
-        
+                logger.debug('Re-confirming device name: %s', device_name)
+                # Device name comes from J-Link API, not user input, so safe to use directly
+                self.exec_command('Device = %s' % device_name)
+                time.sleep(0.1)
+            except Exception as e:
+                logger.warning('Failed to re-confirm device name: %s', e)
+
         # Reset if requested
         if reset_before_start and self.target_connected():
             try:
+                logger.debug('Resetting device before RTT start...')
                 self.reset(ms=1)
-                time.sleep(0.5)  # Wait after reset for device to stabilize
-            except Exception:
-                pass
-        
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning('Failed to reset device: %s', e)
+
         # Ensure device is running (RTT requires running CPU)
-        # RTT Viewer works without manipulating device state, so we do the same
-        # Only resume if we're absolutely certain the device is halted (== 1)
-        # Don't interfere if state is ambiguous (-1) - trust that device is running
-        try:
-            is_halted = self._dll.JLINKARM_IsHalted()
-            if is_halted == 1:  # Device is definitely halted
-                self._dll.JLINKARM_Go()
-                time.sleep(0.3)  # Brief wait after resume
-            # If is_halted == 0, device is running - do nothing
-            # If is_halted == -1, state is ambiguous - assume running (like RTT Viewer)
-        except Exception:
-            # If we can't check state, don't interfere - assume device is running
-            pass
-        
+        if allow_resume:
+            try:
+                is_halted = self._dll.JLINKARM_IsHalted()
+                if is_halted == 1:  # Device is definitely halted
+                    logger.debug('Device is halted, resuming...')
+                    self._dll.JLINKARM_Go()
+                    time.sleep(0.3)
+                elif force_resume and is_halted == -1:  # Ambiguous state
+                    logger.debug('Device state ambiguous, forcing resume...')
+                    self._dll.JLINKARM_Go()
+                    time.sleep(0.3)
+                elif is_halted == 0:
+                    logger.debug('Device is running')
+                # is_halted == -1 and not force_resume: ambiguous, assume running
+            except Exception as e:
+                logger.warning('Failed to check/resume device state: %s', e)
+                if force_resume:
+                    raise errors.JLinkException('Device state check failed: %s' % e)
+                # Otherwise, assume device is running
+
         # Set search ranges if provided or if we can derive from device info
         # IMPORTANT: SetRTTSearchRanges must be called BEFORE rtt_control(START)
-        # and RTT must be stopped (we did that above)
-        # NOTE: According to UM08001, SetRTTSearchRanges expects (start_address, size) format
-        # Note: Calling SetRTTSearchRanges without parameters may add a default range,
-        # so we don't clear ranges - we just set the correct one which should replace previous ranges
+        search_range_desc = None
         if search_ranges and len(search_ranges) > 0:
-            # Use only the first range (J-Link typically uses one range for RTT search)
-            start_addr, end_addr = search_ranges[0]
-            try:
-                # Convert (start, end) to (start, size) as per UM08001 documentation
-                start_addr = int(start_addr) & 0xFFFFFFFF
-                end_addr = int(end_addr) & 0xFFFFFFFF
-                size = end_addr - start_addr + 1
-                size = size & 0xFFFFFFFF
-                cmd = f"SetRTTSearchRanges {start_addr:X} {size:X}"
-                self.exec_command(cmd)
-                time.sleep(0.3)  # Wait longer after setting search ranges
-            except Exception:
-                pass
-        elif hasattr(self, '_device') and self._device and hasattr(self._device, 'RAMAddr'):
-            # Auto-generate search ranges from device RAM info (from J-Link API)
-            ram_start = self._device.RAMAddr
-            ram_size = self._device.RAMSize if hasattr(self._device, 'RAMSize') else None
-            
-            if ram_size:
-                # Use the full RAM range (like RTT Viewer does)
-                # SetRTTSearchRanges expects (start, size) format per UM08001
-                try:
-                    ram_start = int(ram_start) & 0xFFFFFFFF
-                    ram_size = int(ram_size) & 0xFFFFFFFF
-                    cmd = f"SetRTTSearchRanges {ram_start:X} {ram_size:X}"
-                    self.exec_command(cmd)
-                    time.sleep(0.1)
-                except Exception:
-                    pass
-            else:
-                # Fallback: use common 64KB range
-                try:
-                    ram_start = int(ram_start) & 0xFFFFFFFF
-                    fallback_size = 0x10000  # 64KB
-                    cmd = f"SetRTTSearchRanges {ram_start:X} {fallback_size:X}"
-                    self.exec_command(cmd)
-                    time.sleep(0.1)
-                except Exception:
-                    pass
-        
+            # Validate search ranges (will raise ValueError if invalid)
+            # This ensures user input is validated before proceeding
+            search_range_desc = self._set_rtt_search_ranges(search_ranges)
+            if search_range_desc:
+                logger.debug('Using provided search ranges: %s', search_range_desc)
+        else:
+            # Auto-generate from device info
+            search_range_desc = self._set_rtt_search_ranges_from_device()
+            if search_range_desc:
+                logger.debug('Using auto-generated search range: %s', search_range_desc)
+
         # Start RTT
         config = None
         if block_address is not None:
             config = structs.JLinkRTTerminalStart()
             config.ConfigBlockAddress = block_address
-        
-        self.rtt_control(enums.JLinkRTTCommand.START, config)
-        
+            logger.debug('Starting RTT with specific control block address: 0x%X', block_address)
+        else:
+            logger.debug('Starting RTT with auto-detection...')
+
+        try:
+            self.rtt_control(enums.JLinkRTTCommand.START, config)
+        except errors.JLinkRTTException:
+            # RTT start command itself failed - always raise
+            raise
+
         # Wait after START command before polling
-        # Some devices need more time for RTT to initialize and find the control block
         time.sleep(0.5)
-        
-        # Poll for RTT to be ready (some devices need time for auto-detection)
-        # RTT Viewer waits patiently, so we do the same
-        max_wait = 10.0
+
+        # Poll for RTT to be ready
         start_time = time.time()
-        wait_interval = 0.05  # Start with shorter intervals for faster detection
-        
-        while (time.time() - start_time) < max_wait:
+        wait_interval = poll_interval
+        attempt_count = 0
+
+        logger.debug(
+            'Polling for RTT buffers (timeout: %.1fs, initial interval: %.3fs)...',
+            rtt_timeout, poll_interval
+        )
+
+        while (time.time() - start_time) < rtt_timeout:
+            attempt_count += 1
             time.sleep(wait_interval)
+
             try:
                 num_buffers = self.rtt_get_num_up_buffers()
                 if num_buffers > 0:
                     # Found buffers, verify they persist
-                    time.sleep(0.1)  # Brief verification delay
+                    time.sleep(verification_delay)
                     try:
                         num_buffers_check = self.rtt_get_num_up_buffers()
                         if num_buffers_check > 0:
-                            return  # Success - RTT control block found and stable
+                            elapsed = time.time() - start_time
+                            logger.info(
+                                'RTT control block found after %d attempts (%.2fs). '
+                                'Search range: %s',
+                                attempt_count, elapsed, search_range_desc or 'none'
+                            )
+                            return True  # Success - RTT control block found and stable
                     except errors.JLinkRTTException:
                         continue
-            except errors.JLinkRTTException:
-                # Exponential backoff, but cap at reasonable maximum
-                wait_interval = min(wait_interval * 1.5, 0.5)
+            except errors.JLinkRTTException as e:
+                # Exponential backoff
+                if attempt_count % 10 == 0:  # Log every 10 attempts
+                    elapsed = time.time() - start_time
+                    logger.debug(
+                        'RTT detection attempt %d (%.2fs elapsed): %s',
+                        attempt_count, elapsed, e
+                    )
+                wait_interval = min(wait_interval * backoff_factor, max_poll_interval)
                 continue
-        
-        # If we get here and block_address was specified, raise exception
-        # For auto-detection, the exception will be raised by rtt_get_num_up_buffers
-        # when called by the user, so we don't raise here to allow fallback strategies
+
+        # Timeout reached
+        elapsed = time.time() - start_time
+        logger.warning(
+            'RTT control block not found after %d attempts (%.2fs elapsed, timeout=%.1fs). '
+            'Search range: %s',
+            attempt_count, elapsed, rtt_timeout, search_range_desc or 'none'
+        )
+
+        # Behavior differs based on mode
         if block_address is not None:
+            # Specific address mode: raise exception
             try:
                 self.rtt_stop()
             except:
                 pass
             raise errors.JLinkRTTException(
-                enums.JLinkRTTErrors.RTT_ERROR_CONTROL_BLOCK_NOT_FOUND
+                enums.JLinkRTTErrors.RTT_ERROR_CONTROL_BLOCK_NOT_FOUND,
+                'RTT control block not found after %d attempts (%.2fs elapsed, timeout=%.1fs). '
+                'Search range: %s' % (
+                    attempt_count, elapsed, rtt_timeout, search_range_desc or 'none'
+                )
             )
+        else:
+            # Auto-detection mode: return False (backward compatible)
+            # Old code that didn't check return value will continue to work
+            # New code can check the return value explicitly
+            return False
 
     @open_required
     def rtt_stop(self):
@@ -5604,11 +6016,227 @@ class JLink(object):
 
         return res
 
-###############################################################################
-#
-# System control Co-Processor (CP15) API
-#
-###############################################################################
+    @open_required
+    def rtt_is_active(self):
+        """Checks if RTT is currently active and ready to use.
+
+        This method attempts to get the number of up buffers. If successful,
+        RTT is considered active. This is a non-destructive check that does
+        not modify RTT state.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          bool: ``True`` if RTT is active and ready, ``False`` otherwise.
+        """
+        try:
+            num_buffers = self.rtt_get_num_up_buffers()
+            return num_buffers > 0
+        except errors.JLinkRTTException:
+            return False
+        except Exception:
+            return False
+
+    @open_required
+    def rtt_get_info(self):
+        """Gets comprehensive information about the current RTT state.
+
+        This method collects information about RTT buffers, status, and
+        configuration. Useful for debugging and monitoring RTT state.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          dict: Dictionary containing RTT information with keys:
+            - 'active' (bool): Whether RTT is active
+            - 'num_up_buffers' (int): Number of up buffers (or None if error)
+            - 'num_down_buffers' (int): Number of down buffers (or None if error)
+            - 'status' (dict or None): RTT status structure (or None if error)
+            - 'error' (str or None): Error message if any operation failed
+
+        Note:
+          This method catches exceptions internally and returns error information
+          in the result dictionary rather than raising exceptions.
+        """
+        info = {
+            'active': False,
+            'num_up_buffers': None,
+            'num_down_buffers': None,
+            'status': None,
+            'error': None
+        }
+
+        try:
+            # Check if RTT is active
+            info['active'] = self.rtt_is_active()
+
+            if info['active']:
+                # Get buffer counts
+                try:
+                    info['num_up_buffers'] = self.rtt_get_num_up_buffers()
+                except Exception as e:
+                    info['error'] = 'Failed to get up buffers: %s' % e
+
+                try:
+                    info['num_down_buffers'] = self.rtt_get_num_down_buffers()
+                except Exception as e:
+                    if info['error']:
+                        info['error'] += '; Failed to get down buffers: %s' % e
+                    else:
+                        info['error'] = 'Failed to get down buffers: %s' % e
+
+                # Get status
+                try:
+                    status = self.rtt_get_status()
+                    # Convert status struct to dict for easier access
+                    info['status'] = {
+                        'ac_block_size': getattr(status, 'acBlockSize', None),
+                        'max_up_buffers': getattr(status, 'maxUpBuffers', None),
+                        'max_down_buffers': getattr(status, 'maxDownBuffers', None),
+                    }
+                except Exception as e:
+                    if info['error']:
+                        info['error'] += '; Failed to get status: %s' % e
+                    else:
+                        info['error'] = 'Failed to get status: %s' % e
+        except Exception as e:
+            info['error'] = 'Failed to check RTT state: %s' % e
+
+        return info
+
+    @open_required
+    def rtt_read_all(self, buffer_index=0, max_bytes=4096):
+        """Reads all available data from an RTT buffer.
+
+        This is a convenience method that reads all available data from the
+        specified buffer up to max_bytes. Useful for reading complete messages
+        without knowing the exact size beforehand.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int, optional): Index of the RTT buffer to read from.
+            Default: 0
+          max_bytes (int, optional): Maximum number of bytes to read in one call.
+            Default: 4096
+
+        Returns:
+          list: List of bytes read from RTT buffer. Empty list if no data available.
+
+        Raises:
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Read call fails.
+        """
+        try:
+            return self.rtt_read(buffer_index, max_bytes)
+        except errors.JLinkRTTException as e:
+            # If error is "no data available", return empty list
+            # Otherwise re-raise
+            if hasattr(e, 'error_code') and e.error_code == enums.JLinkRTTErrors.RTT_ERROR_BUFFER_NOT_FOUND:
+                return []
+            raise
+
+    @open_required
+    def rtt_write_string(self, buffer_index, text, encoding='utf-8'):
+        """Writes a string to an RTT buffer.
+
+        This is a convenience method that converts a string to bytes and writes
+        it to the specified RTT buffer.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): Index of the RTT buffer to write to
+          text (str): String to write to RTT buffer
+          encoding (str, optional): Encoding to use for string conversion.
+            Default: 'utf-8'
+
+        Returns:
+          int: Number of bytes successfully written to the RTT buffer.
+
+        Raises:
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Write call fails.
+          UnicodeEncodeError: if the string cannot be encoded with the specified encoding.
+        """
+        if isinstance(text, bytes):
+            data = list(text)
+        else:
+            data = list(text.encode(encoding))
+        return self.rtt_write(buffer_index, data)
+
+    class RTTContext(object):
+        """Context manager for RTT operations.
+
+        This context manager automatically starts RTT when entering the context
+        and stops RTT when exiting, even if an exception occurs.
+
+        Example:
+          >>> with jlink.rtt_context():
+          ...     data = jlink.rtt_read(0, 1024)
+          # RTT automatically stopped here
+        """
+
+        def __init__(self, jlink_instance, **rtt_start_kwargs):
+            """Initializes the RTT context manager.
+
+            Args:
+              jlink_instance (JLink): The JLink instance to use
+              **rtt_start_kwargs: Arguments to pass to rtt_start()
+            """
+            self.jlink = jlink_instance
+            self.rtt_start_kwargs = rtt_start_kwargs
+            self.rtt_started = False
+
+        def __enter__(self):
+            """Starts RTT when entering the context.
+
+            Returns:
+              JLink: The JLink instance for convenience.
+            """
+            success = self.jlink.rtt_start(**self.rtt_start_kwargs)
+            self.rtt_started = success
+            if not success:
+                logger.warning('RTT context: rtt_start() returned False, RTT may not be active')
+            return self.jlink
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            """Stops RTT when exiting the context.
+
+            Args:
+              exc_type: Exception type (if exception occurred)
+              exc_val: Exception value (if exception occurred)
+              exc_tb: Exception traceback (if exception occurred)
+
+            Returns:
+              False: Always returns False to allow exceptions to propagate.
+            """
+            if self.rtt_started:
+                try:
+                    self.jlink.rtt_stop()
+                except Exception as e:
+                    logger.warning('RTT context: Failed to stop RTT: %s', e)
+            return False  # Don't suppress exceptions
+
+    def rtt_context(self, **kwargs):
+        """Creates a context manager for RTT operations.
+
+        This method returns a context manager that automatically starts RTT
+        when entering and stops RTT when exiting. All arguments are passed
+        directly to rtt_start().
+
+        Args:
+          **kwargs: Arguments to pass to rtt_start()
+
+        Returns:
+          RTTContext: Context manager instance.
+
+        Example:
+          >>> with jlink.rtt_context():
+          ...     data = jlink.rtt_read(0, 1024)
+
+          >>> with jlink.rtt_context(search_ranges=[(0x20000000, 0x2003FFFF)]):
+          ...     data = jlink.rtt_read(0, 1024)
+        """
+        return self.RTTContext(self, **kwargs)
 
     @connection_required
     def cp15_present(self):

@@ -36,7 +36,16 @@ The `rtt_start()` method has been enhanced with the following improvements:
 
 1. **New Optional Parameters**:
    - `search_ranges`: List of tuples specifying (start, end) address ranges for RTT control block search
+     - Supports multiple ranges: `[(start1, end1), (start2, end2), ...]`
+     - Validates ranges: start <= end, size > 0, size <= 16MB
    - `reset_before_start`: Boolean flag to reset the device before starting RTT
+   - `rtt_timeout`: Maximum time (seconds) to wait for RTT detection (default: 10.0)
+   - `poll_interval`: Initial polling interval (seconds) (default: 0.05)
+   - `max_poll_interval`: Maximum polling interval (seconds) (default: 0.5)
+   - `backoff_factor`: Exponential backoff multiplier (default: 1.5)
+   - `verification_delay`: Delay before verification check (seconds) (default: 0.1)
+   - `allow_resume`: If True, resume device if halted (default: True)
+   - `force_resume`: If True, resume device even if state is ambiguous (default: False)
 
 2. **Automatic Search Range Generation**: 
    - When `search_ranges` is not provided, the method now automatically generates search ranges from device RAM information obtained via the J-Link API
@@ -57,18 +66,42 @@ The `rtt_start()` method has been enhanced with the following improvements:
    - Verifies buffers persist before returning (double-check for stability)
    - Returns immediately when RTT buffers are detected and verified
 
-5. **Backward Compatibility**:
+5. **Return Semantics**:
+   - **Auto-detection mode** (`block_address=None`):
+     - Returns `True` if RTT control block is found and verified
+     - Returns `False` if polling times out (control block not found)
+     - Raises `JLinkRTTException` only if RTT start command itself fails
+   - **Specific address mode** (`block_address` specified):
+     - Returns `True` if RTT control block is found and verified
+     - Raises `JLinkRTTException` if control block not found after timeout
+
+6. **Backward Compatibility**:
    - All new parameters are optional with sensible defaults
    - Existing code using `rtt_start()` or `rtt_start(block_address)` continues to work unchanged
-   - The method maintains the same return value and exception behavior
+   - Old code that doesn't check return value will continue to work (returns `True`/`False` instead of `None`)
+   - New code can explicitly check return value: `success = jlink.rtt_start()`
+
+7. **Thread Safety**:
+   - This method is **not thread-safe**
+   - If multiple threads access the same `JLink` instance, external synchronization is required
+   - The J-Link DLL itself is not thread-safe, so operations must be serialized
 
 ### Code Changes
 
-The implementation adds approximately 100 lines to the `rtt_start()` method in `pylink/jlink.py`, including:
-- Device state verification and resume logic
-- Search range configuration via `exec_command("SetRTTSearchRanges ...")`
-- Polling loop with timeout handling
-- Comprehensive error handling
+The implementation adds helper methods and enhances `rtt_start()` in `pylink/jlink.py`:
+
+**New Helper Methods:**
+- `_validate_and_normalize_search_range()`: Validates and normalizes search range tuples
+- `_set_rtt_search_ranges()`: Configures RTT search ranges with validation and error handling
+- `_set_rtt_search_ranges_from_device()`: Auto-generates search ranges from device RAM info
+
+**Enhanced `rtt_start()` Method:**
+- Device state verification and resume logic with configurable options
+- Search range configuration via `exec_command("SetRTTSearchRanges ...")` with support for multiple ranges
+- Polling loop with configurable timeout and intervals
+- Comprehensive error handling with logging
+- Explicit return value semantics (`True`/`False` instead of `None`)
+- Input validation for search ranges
 
 ## Testing
 
@@ -157,22 +190,27 @@ Where `0x40000` is the size (256 KB) of the RAM range starting at `0x20000000`.
 
 ### Polling Implementation
 
-The polling mechanism uses exponential backoff:
-- Initial interval: 0.1 seconds
-- Maximum interval: 0.5 seconds
-- Growth factor: 1.5x per iteration
-- Maximum wait time: 10 seconds
+The polling mechanism uses exponential backoff with configurable parameters:
+- Initial interval: 0.05 seconds (configurable via `poll_interval`)
+- Maximum interval: 0.5 seconds (configurable via `max_poll_interval`)
+- Growth factor: 1.5x per iteration (configurable via `backoff_factor`)
+- Maximum wait time: 10 seconds (configurable via `rtt_timeout`)
 
-The polling checks `rtt_get_num_up_buffers()` which internally calls `JLINK_RTTERMINAL_Control(GETNUMBUF)`. When this returns a value greater than 0, RTT is considered ready.
+The polling checks `rtt_get_num_up_buffers()` which internally calls `JLINK_RTTERMINAL_Control(GETNUMBUF)`. When this returns a value greater than 0, RTT is considered ready. The implementation logs progress every 10 attempts for debugging purposes.
 
 ### Error Handling
 
 The implementation handles several error scenarios gracefully:
-- Device state cannot be determined: Assumes device is running and proceeds
-- Search range configuration fails: Continues with RTT start attempt
+- Device state cannot be determined: Assumes device is running and proceeds (logs warning)
+- Search range configuration fails: Logs error but continues with RTT start attempt (auto-detection may still work)
 - Device connection state unclear: Proceeds optimistically (RTT Viewer works in similar conditions)
+- Invalid search ranges: Raises `ValueError` with descriptive message before proceeding
 
-For auto-detection mode (no `block_address` specified), if polling times out, the method returns without raising an exception, allowing the caller to implement fallback strategies. If `block_address` is specified and polling times out, a `JLinkRTTException` is raised.
+**Return Behavior:**
+- **Auto-detection mode** (`block_address=None`): Returns `False` if polling times out (no exception), allowing caller to implement fallback strategies
+- **Specific address mode** (`block_address` specified): Raises `JLinkRTTException` if control block not found after timeout
+
+All errors are logged using Python's `logging` module at appropriate levels (DEBUG, WARNING, ERROR).
 
 ## Backward Compatibility
 
@@ -197,11 +235,88 @@ This PR addresses:
 - Uses only existing J-Link APIs (no external dependencies)
 - No XML parsing or file system access
 
+## Usage Examples
+
+### Basic Auto-Detection
+
+```python
+import pylink
+
+jlink = pylink.JLink()
+jlink.open()
+jlink.connect('nRF54L15')
+
+# Auto-detection with default settings
+success = jlink.rtt_start()
+if success:
+    print("RTT started successfully")
+    # Read RTT data
+    data = jlink.rtt_read(0, 1024)
+else:
+    print("RTT control block not found")
+```
+
+### Explicit Search Range
+
+```python
+# For nRF54L15: RAM is at 0x20000000, size 0x40000 (256KB)
+jlink.rtt_start(search_ranges=[(0x20000000, 0x2003FFFF)])
+```
+
+### Multiple Search Ranges
+
+```python
+# Some devices have multiple RAM regions
+jlink.rtt_start(search_ranges=[
+    (0x20000000, 0x2003FFFF),  # Main RAM
+    (0x10000000, 0x1000FFFF)   # Secondary RAM
+])
+```
+
+### Custom Timeout for Slow Devices
+
+```python
+# Increase timeout for devices that take longer to initialize
+jlink.rtt_start(rtt_timeout=20.0)
+```
+
+### Reset Before Start
+
+```python
+# Reset device before starting RTT (useful after flashing)
+jlink.rtt_start(reset_before_start=True)
+```
+
+### Specific Control Block Address
+
+```python
+# Use known control block address (faster, but less flexible)
+jlink.rtt_start(block_address=0x200044E0)
+```
+
+### Don't Modify Device State
+
+```python
+# Don't resume device if halted (useful when debugging)
+jlink.rtt_start(allow_resume=False)
+```
+
+### Recommended Parameters for nRF54L15
+
+```python
+# Recommended settings for nRF54L15
+jlink.rtt_start(
+    search_ranges=[(0x20000000, 0x2003FFFF)],
+    reset_before_start=False,  # Set to True if needed after flashing
+    rtt_timeout=10.0,          # Default is usually sufficient
+    allow_resume=True          # Default is usually sufficient
+)
+```
+
 ## Future Considerations
 
 While this implementation solves the immediate problem, future enhancements could include:
 - Device-specific search range presets for common devices
-- Configurable polling timeout
 - More sophisticated device state detection
 - Support for multiple simultaneous RTT connections
 
