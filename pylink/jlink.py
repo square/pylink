@@ -683,13 +683,20 @@ class JLink(object):
     def open(self, serial_no=None, ip_addr=None):
         """Connects to the J-Link emulator (defaults to USB).
 
+        If ``serial_no`` was specified in ``__init__()`` and not provided here,
+        the serial number from ``__init__()`` will be used. Similarly, if
+        ``ip_addr`` was specified in ``__init__()`` and not provided here, it
+        will be used.
+
         If ``serial_no`` and ``ip_addr`` are both given, this function will
         connect to the J-Link over TCP/IP.
 
         Args:
           self (JLink): the ``JLink`` instance
-          serial_no (int): serial number of the J-Link
-          ip_addr (str): IP address and port of the J-Link (e.g. 192.168.1.1:80)
+          serial_no (int, optional): serial number of the J-Link.
+            If None and serial_no was specified in __init__(), uses that value.
+          ip_addr (str, optional): IP address and port of the J-Link (e.g. 192.168.1.1:80).
+            If None and ip_addr was specified in __init__(), uses that value.
 
         Returns:
           ``None``
@@ -709,6 +716,15 @@ class JLink(object):
         #        NET_WriteRead(): USB communication not locked
         #        PID0017A8C (): Lock count error (decrement)
         self.close()
+
+        # If serial_no or ip_addr not provided but were specified in __init__, use them
+        # This ensures that values passed to constructor are used when open() is called
+        # without explicit parameters, avoiding the need for additional queries.
+        if serial_no is None and ip_addr is None:
+            serial_no = self.__serial_no
+
+        if ip_addr is None:
+            ip_addr = self.__ip_addr
 
         if ip_addr is not None:
             addr, port = ip_addr.rsplit(':', 1)
