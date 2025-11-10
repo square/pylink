@@ -3538,6 +3538,9 @@ class JLink(object):
             register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
+    # Alias for backward compatibility (used by some code)
+    reg_read = register_read
+
     @connection_required
     def register_read_multiple(self, register_indices):
         """Retrieves the values from the registers specified.
@@ -3641,6 +3644,230 @@ class JLink(object):
             raise errors.JLinkException(res)
 
         return None
+
+    @connection_required
+    def read_idcode(self):
+        """Reads the device IDCODE via SWD/JTAG.
+
+        IDCODE (Device Identification Code) is part of the TAP controller and
+        is always accessible via SWD/JTAG, regardless of firmware state. This
+        makes it a reliable method for checking device connection health.
+
+        This method is useful for:
+        - Detecting device resets (IDCODE read fails during reset)
+        - Verifying SWD/JTAG connection health
+        - Firmware-independent device accessibility checks
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          int: The device IDCODE value (32-bit unsigned integer)
+
+        Raises:
+          JLinkException: if IDCODE could not be read (device may be reset or disconnected)
+
+        Note:
+          IDCODE is universal and works with all architectures (ARM Cortex-M, Cortex-A,
+          RISC-V, etc.) that support SWD/JTAG debugging.
+
+        Example:
+          >>> jlink = pylink.JLink()
+          >>> jlink.open()
+          >>> jlink.connect('Cortex-M33')
+          >>> try:
+          ...     idcode = jlink.read_idcode()
+          ...     print(f"IDCODE: 0x{idcode:08X}")
+          ... except pylink.errors.JLinkException:
+          ...     print("Device reset detected or disconnected")
+        """
+        # Try different possible function names for reading IDCODE
+        # JLINKARM_ReadIdCode is the standard J-Link SDK function
+        idcode_readers = [
+            'JLINKARM_ReadIdCode',
+            'JLINK_ReadIdCode',
+            'ReadIdCode',
+        ]
+
+        for func_name in idcode_readers:
+            if hasattr(self._dll, func_name):
+                try:
+                    read_func = getattr(self._dll, func_name)
+                    idcode = read_func()
+                    # IDCODE should be non-zero (0 indicates failure)
+                    if idcode == 0:
+                        raise errors.JLinkException('IDCODE read returned 0 (device may be reset or disconnected)')
+                    return idcode & 0xFFFFFFFF  # Ensure 32-bit value
+                except (AttributeError, ctypes.ArgumentError) as e:
+                    # Function exists but signature may be wrong, try next
+                    logger.debug('Failed to call %s: %s', func_name, e)
+                    continue
+                except Exception as e:
+                    # Other errors (device reset, disconnection, etc.)
+                    raise errors.JLinkException('Failed to read IDCODE: %s' % str(e))
+
+        # No IDCODE reader function found
+        raise errors.JLinkException('IDCODE read function not available in J-Link DLL')
+
+    @connection_required
+    def check_connection_health(self, detailed=False):
+        """Checks device connection health by reading hardware resources.
+
+        This method performs firmware-independent connection health checks by
+        reading resources that should always be accessible via SWD/JTAG:
+        - IDCODE (device identification code) - universal, works for all architectures
+        - CPUID register (ARM Cortex-M at 0xE000ED00) - architecture-specific
+        - Processor registers (e.g., R0) - architecture-dependent but registers always exist
+
+        **Key insight**: If **ALL** reads fail, it indicates a reset occurred
+        (device temporarily unavailable during reset, then reconnects). If **ANY**
+        read succeeds, the device is accessible (no reset).
+
+        This method is useful for:
+        - Detecting device resets without firmware cooperation
+        - Verifying SWD/JTAG connection health
+        - Implementing reliable reset detection in monitoring applications
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          detailed (bool, optional): If True, returns detailed health status dictionary.
+            If False (default), returns simple boolean.
+
+        Returns:
+          bool or dict: If ``detailed=False``, returns ``True`` if device is accessible,
+            ``False`` if reset/disconnected. If ``detailed=True``, returns dictionary with:
+            - ``idcode`` (int or None): IDCODE value if read succeeded
+            - ``cpuid`` (int or None): CPUID value if read succeeded (ARM Cortex-M only)
+            - ``register_r0`` (int or None): R0 register value if read succeeded
+            - ``all_accessible`` (bool): True if at least one read succeeded
+
+        Raises:
+          JLinkException: if connection is not established (use ``connected()`` first)
+
+        Note:
+          - CPUID address (0xE000ED00) is specific to ARM Cortex-M architecture.
+            For other architectures (Cortex-A, RISC-V, etc.), CPUID read is skipped.
+          - The method remains reliable because IDCODE and register reads are universal.
+          - This method does not require the device to be running firmware.
+
+        Example:
+          >>> jlink = pylink.JLink()
+          >>> jlink.open()
+          >>> jlink.connect('Cortex-M33')
+          >>> # Simple health check
+          >>> is_accessible = jlink.check_connection_health()
+          >>> if not is_accessible:
+          ...     print("Device reset detected")
+          >>> # Detailed health check
+          >>> health = jlink.check_connection_health(detailed=True)
+          >>> print(f"IDCODE: {health['idcode']}")
+          >>> print(f"CPUID: {health['cpuid']}")
+          >>> print(f"All accessible: {health['all_accessible']}")
+        """
+        idcode_value = None
+        cpuid_value = None
+        register_r0_value = None
+
+        idcode_ok = False
+        cpuid_ok = False
+        register_ok = False
+
+        # Method 1: Try to read IDCODE (universal, works for all architectures)
+        try:
+            idcode_value = self.read_idcode()
+            idcode_ok = True
+            logger.debug('IDCODE check OK: 0x%08X', idcode_value)
+        except errors.JLinkException as e:
+            logger.debug('IDCODE read failed: %s', e)
+            # Don't return immediately - check other methods first
+
+        # Method 2: Read CPUID register (ARM Cortex-M only)
+        # CPUID address (0xE000ED00) is NOT universal - it's specific to ARM Cortex-M
+        # Only attempt this if we know the device is ARM Cortex-M
+        is_cortex_m = False
+        if self._device and hasattr(self._device, 'name'):
+            device_name = self._device.name
+            if device_name:
+                device_lower = device_name.lower()
+                is_cortex_m = any(core in device_lower for core in [
+                    'cortex-m', 'm33', 'm4', 'm3', 'm7', 'm0', 'm23', 'm52', 'm55', 'm85'
+                ])
+
+        if is_cortex_m:
+            try:
+                cpuid_data = self.memory_read32(0xE000ED00, 1)
+                cpuid_value = cpuid_data[0] if isinstance(cpuid_data, (list, tuple)) else cpuid_data
+                cpuid_ok = True
+                logger.debug('CPUID check OK: 0x%08X', cpuid_value)
+            except errors.JLinkException as e:
+                logger.debug('CPUID read failed: %s', e)
+                # Don't return immediately - check other methods first
+        else:
+            logger.debug('Skipping CPUID read (not ARM Cortex-M device)')
+
+        # Method 3: Verify SWD connection and read basic register (universal)
+        # Note: Register reads may fail if CPU is running (this is normal, not an error)
+        try:
+            # Check if connection is still valid
+            if not self.connected():
+                logger.debug('SWD connection lost')
+                # If connection is lost, definitely reset occurred
+                if detailed:
+                    return {
+                        'idcode': idcode_value,
+                        'cpuid': cpuid_value,
+                        'register_r0': register_r0_value,
+                        'all_accessible': False
+                    }
+                return False
+
+            # Try to read register R0 (always exists, should be accessible)
+            # Note: This may fail if CPU is running, which is normal and not an error
+            # We check if CPU is halted first to avoid unnecessary exceptions
+            try:
+                is_halted = self.halted()
+                if is_halted:
+                    # CPU is halted, safe to read registers
+                    register_r0_value = self.register_read(0)
+                    register_ok = True
+                    logger.debug('Register read check OK: R0=0x%08X', register_r0_value)
+                else:
+                    # CPU is running - register reads will fail, but this is normal
+                    # Connection is still valid, so we consider this as "accessible"
+                    # (IDCODE and CPUID checks already confirmed accessibility)
+                    logger.debug('CPU is running - skipping register read (normal operation)')
+                    # If IDCODE or CPUID already succeeded, we know device is accessible
+                    # Register read failure while CPU is running is not an error
+                    if idcode_ok or cpuid_ok:
+                        register_ok = True  # Consider accessible if other methods worked
+            except errors.JLinkException as e:
+                error_msg = str(e).lower()
+                # Check if error is due to CPU running (this is normal, not a connection problem)
+                if 'running' in error_msg or 'halted' in error_msg:
+                    logger.debug('Register read skipped (CPU state): %s', e)
+                    # If IDCODE or CPUID already succeeded, device is accessible
+                    if idcode_ok or cpuid_ok:
+                        register_ok = True
+                else:
+                    # Other error - might indicate connection problem
+                    logger.debug('Register read failed: %s', e)
+        except errors.JLinkException as e:
+            logger.debug('Connection check failed: %s', e)
+            # Don't return immediately - check other methods first
+
+        # Decision: If ANY method succeeded, device is accessible (no reset)
+        # Only if ALL methods failed, assume reset occurred
+        all_accessible = idcode_ok or cpuid_ok or register_ok
+
+        if detailed:
+            return {
+                'idcode': idcode_value if idcode_ok else None,
+                'cpuid': cpuid_value if cpuid_ok else None,
+                'register_r0': register_r0_value if register_ok else None,
+                'all_accessible': all_accessible
+            }
+
+        return all_accessible
 
     @connection_required
     def ice_register_read(self, register_index):
