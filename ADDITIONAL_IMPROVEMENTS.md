@@ -1,232 +1,231 @@
-# Mejoras Adicionales Propuestas
+# Additional Proposed Improvements
 
-## 🎯 Mejoras de Alta Prioridad
+## 🎯 High Priority Improvements
 
-### 1. Validación de Parámetros de Polling ⚠️
+### 1. Polling Parameter Validation ⚠️
 
-**Problema**: Los parámetros de polling pueden ser inválidos o inconsistentes.
+**Problem**: Polling parameters can be invalid or inconsistent.
 
-**Solución**: Validar que:
+**Solution**: Validate that:
 - `rtt_timeout > 0`
 - `poll_interval > 0`
 - `max_poll_interval >= poll_interval`
 - `backoff_factor > 1.0`
 - `verification_delay >= 0`
 
-**Impacto**: Previene errores sutiles y comportamiento inesperado.
+**Impact**: Prevents subtle errors and unexpected behavior.
 
 ---
 
-### 2. Método Helper para Verificar Estado de RTT 🔍
+### 2. Helper Method to Check RTT Status 🔍
 
-**Problema**: No hay forma fácil de verificar si RTT está activo sin intentar leer.
+**Problem**: No easy way to check if RTT is active without attempting to read.
 
-**Solución**: Añadir método `rtt_is_active()` que retorne `True`/`False`.
+**Solution**: Add `rtt_is_active()` method that returns `True`/`False`.
 
-**Impacto**: Mejora la experiencia del usuario y permite mejor manejo de estado.
+**Impact**: Improves user experience and allows better state management.
 
 ---
 
-### 3. Presets de Dispositivos Comunes 📋
+### 3. Common Device Presets 📋
 
-**Problema**: Usuarios tienen que buscar manualmente los rangos de RAM para cada dispositivo.
+**Problem**: Users have to manually search for RAM ranges for each device.
 
-**Solución**: Diccionario con presets conocidos para dispositivos comunes:
+**Solution**: Dictionary with known presets for common devices:
 - nRF54L15
 - nRF52840
 - STM32F4
 - etc.
 
-**Impacto**: Facilita el uso para dispositivos comunes.
+**Impact**: Facilitates use for common devices.
 
 ---
 
-### 4. Type Hints (si compatible) 📝
+### 4. Type Hints (if compatible) 📝
 
-**Problema**: Sin type hints, IDEs no pueden proporcionar autocompletado completo.
+**Problem**: Without type hints, IDEs cannot provide complete autocompletion.
 
-**Solución**: Añadir type hints usando `typing` module (si Python 3.5+).
+**Solution**: Add type hints using `typing` module (if Python 3.5+).
 
-**Impacto**: Mejor experiencia de desarrollo, mejor documentación.
+**Impact**: Better development experience, better documentation.
 
 ---
 
-## 🔧 Mejoras de Media Prioridad
+## 🔧 Medium Priority Improvements
 
-### 5. Context Manager para RTT 🎯
+### 5. Context Manager for RTT 🎯
 
-**Problema**: Usuarios pueden olvidar llamar `rtt_stop()`.
+**Problem**: Users may forget to call `rtt_stop()`.
 
-**Solución**: Implementar `__enter__` y `__exit__` para uso con `with`.
+**Solution**: Implement `__enter__` and `__exit__` for use with `with`.
 
-**Ejemplo**:
+**Example**:
 ```python
 with jlink.rtt_context():
     data = jlink.rtt_read(0, 1024)
-# Automáticamente llama rtt_stop()
+# Automatically calls rtt_stop()
 ```
 
-**Impacto**: Mejora la seguridad y facilita el uso.
+**Impact**: Improves safety and facilitates use.
 
 ---
 
-### 6. Método para Obtener Información de RTT 📊
+### 6. Method to Get RTT Information 📊
 
-**Problema**: No hay forma fácil de obtener información sobre el estado actual de RTT.
+**Problem**: No easy way to get information about current RTT state.
 
-**Solución**: Método `rtt_get_info()` que retorne:
-- Número de buffers up/down
-- Estado de RTT (active/inactive)
-- Search range usado
-- Control block address (si conocido)
+**Solution**: `rtt_get_info()` method that returns:
+- Number of up/down buffers
+- RTT status (active/inactive)
+- Search range used
+- Control block address (if known)
 
-**Impacto**: Facilita debugging y monitoreo.
+**Impact**: Facilitates debugging and monitoring.
 
 ---
 
-### 7. Validación de Parámetros en `rtt_start()` ⚠️
+### 7. Parameter Validation in `rtt_start()` ⚠️
 
-**Problema**: Algunos parámetros pueden ser inválidos pero no se validan.
+**Problem**: Some parameters can be invalid but are not validated.
 
-**Solución**: Validar todos los parámetros al inicio del método:
-- `block_address` debe ser válido (si especificado)
-- `rtt_timeout` debe ser positivo
-- `poll_interval` debe ser positivo y menor que `max_poll_interval`
+**Solution**: Validate all parameters at the beginning of the method:
+- `block_address` must be valid (if specified)
+- `rtt_timeout` must be positive
+- `poll_interval` must be positive and less than `max_poll_interval`
 - etc.
 
-**Impacto**: Falla rápido con mensajes claros.
+**Impact**: Fails fast with clear messages.
 
 ---
 
-### 8. Método Helper para Detectar Dispositivo 🎯
+### 8. Helper Method to Detect Device 🎯
 
-**Problema**: Usuarios pueden no saber qué dispositivo están usando.
+**Problem**: Users may not know what device they are using.
 
-**Solución**: Método `get_device_info()` que retorne información del dispositivo conectado.
+**Solution**: `get_device_info()` method that returns information about connected device.
 
-**Impacto**: Facilita debugging y configuración automática.
+**Impact**: Facilitates debugging and automatic configuration.
 
 ---
 
-## 📚 Mejoras de Baja Prioridad
+## 📚 Low Priority Improvements
 
-### 9. Métricas de Detección 📈
+### 9. Detection Metrics 📈
 
-**Problema**: No hay información sobre cuánto tiempo tomó detectar RTT.
+**Problem**: No information about how long RTT detection took.
 
-**Solución**: Opcionalmente retornar objeto con métricas:
-- Tiempo de detección
-- Número de intentos
-- Search range usado
+**Solution**: Optionally return object with metrics:
+- Detection time
+- Number of attempts
+- Search range used
 - etc.
 
-**Impacto**: Útil para debugging y optimización.
+**Impact**: Useful for debugging and optimization.
 
 ---
 
-### 10. Retry Logic Mejorado 🔄
+### 10. Improved Retry Logic 🔄
 
-**Problema**: Si falla la detección, no hay forma fácil de reintentar con diferentes parámetros.
+**Problem**: If detection fails, there's no easy way to retry with different parameters.
 
-**Solución**: Parámetro `retry_count` y `retry_delay` para reintentos automáticos.
+**Solution**: `retry_count` and `retry_delay` parameters for automatic retries.
 
-**Impacto**: Mejora la robustez en entornos inestables.
-
----
-
-### 11. Documentación de Troubleshooting 🔧
-
-**Problema**: Usuarios pueden no saber qué hacer cuando falla.
-
-**Solución**: Añadir sección de troubleshooting al README con:
-- Problemas comunes
-- Soluciones
-- Cómo obtener logs de debug
-
-**Impacto**: Reduce soporte y mejora experiencia del usuario.
+**Impact**: Improves robustness in unstable environments.
 
 ---
 
-### 12. Tests Unitarios 🧪
+### 11. Troubleshooting Documentation 🔧
 
-**Problema**: No hay tests para las nuevas funcionalidades.
+**Problem**: Users may not know what to do when it fails.
 
-**Solución**: Crear tests unitarios usando `unittest` y `mock`:
-- Test de validación de rangos
-- Test de auto-generación de rangos
-- Test de polling
-- Test de manejo de errores
+**Solution**: Add troubleshooting section to README with:
+- Common problems
+- Solutions
+- How to get debug logs
 
-**Impacto**: Asegura que el código funciona correctamente y previene regresiones.
+**Impact**: Reduces support and improves user experience.
 
 ---
 
-## 🎨 Mejoras de Código
+### 12. Unit Tests 🧪
 
-### 13. Constantes para Valores Mágicos 🔢
+**Problem**: No tests for new functionality.
 
-**Problema**: Valores como `0x1000000` (16MB) están hardcodeados.
+**Solution**: Create unit tests using `unittest` and `mock`:
+- Range validation tests
+- Auto-generation range tests
+- Polling tests
+- Error handling tests
 
-**Solución**: Definir constantes:
+**Impact**: Ensures code works correctly and prevents regressions.
+
+---
+
+## 🎨 Code Improvements
+
+### 13. Constants for Magic Values 🔢
+
+**Problem**: Values like `0x1000000` (16MB) are hardcoded.
+
+**Solution**: Define constants:
 ```python
 MAX_SEARCH_RANGE_SIZE = 0x1000000  # 16MB
 DEFAULT_FALLBACK_SIZE = 0x10000     # 64KB
 ```
 
-**Impacto**: Código más mantenible y legible.
+**Impact**: More maintainable and readable code.
 
 ---
 
-### 14. Mejor Separación de Responsabilidades 🏗️
+### 14. Better Separation of Responsibilities 🏗️
 
-**Problema**: `rtt_start()` hace muchas cosas.
+**Problem**: `rtt_start()` does many things.
 
-**Solución**: Extraer más lógica a helpers:
+**Solution**: Extract more logic to helpers:
 - `_ensure_rtt_stopped()`
 - `_ensure_device_running()`
 - `_poll_for_rtt_ready()`
 
-**Impacto**: Código más testeable y mantenible.
+**Impact**: More testable and maintainable code.
 
 ---
 
-## 📊 Priorización Recomendada
+## 📊 Recommended Prioritization
 
-### Fase 1 (Crítico - Antes de Merge)
-1. ✅ Validación de parámetros de polling
-2. ✅ Validación de parámetros en `rtt_start()`
+### Phase 1 (Critical - Before Merge)
+1. ✅ Polling parameter validation
+2. ✅ Parameter validation in `rtt_start()`
 
-### Fase 2 (Importante - Mejora Usabilidad)
-3. ⚠️ Método `rtt_is_active()`
-4. ⚠️ Presets de dispositivos comunes
-5. ⚠️ Constantes para valores mágicos
+### Phase 2 (Important - Improve Usability)
+3. ⚠️ `rtt_is_active()` method
+4. ⚠️ Common device presets
+5. ⚠️ Constants for magic values
 
-### Fase 3 (Nice to Have)
+### Phase 3 (Nice to Have)
 6. 🔵 Context manager
-7. 🔵 Método `rtt_get_info()`
-8. 🔵 Type hints (si compatible)
-9. 🔵 Tests unitarios
+7. 🔵 `rtt_get_info()` method
+8. 🔵 Type hints (if compatible)
+9. 🔵 Unit tests
 
-### Fase 4 (Futuro)
-10. 🔵 Métricas de detección
-11. 🔵 Retry logic mejorado
-12. 🔵 Documentación de troubleshooting
+### Phase 4 (Future)
+10. 🔵 Detection metrics
+11. 🔵 Improved retry logic
+12. 🔵 Troubleshooting documentation
 
 ---
 
-## 💡 Recomendación
+## 💡 Recommendation
 
-**Implementar ahora (Fase 1)**:
-- Validación de parámetros (crítico para robustez)
-- Constantes para valores mágicos (mejora mantenibilidad)
+**Implement now (Phase 1)**:
+- Parameter validation (critical for robustness)
+- Constants for magic values (improves maintainability)
 
-**Considerar para siguiente PR**:
-- Método `rtt_is_active()`
-- Presets de dispositivos
+**Consider for next PR**:
+- `rtt_is_active()` method
+- Device presets
 - Context manager
 
-**Dejar para futuro**:
-- Type hints (verificar compatibilidad con Python 2)
-- Tests unitarios (requiere setup de mocking complejo)
-- Métricas avanzadas
-
+**Leave for future**:
+- Type hints (verify Python 2 compatibility)
+- Unit tests (requires complex mocking setup)
+- Advanced metrics
