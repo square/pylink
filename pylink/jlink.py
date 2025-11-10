@@ -2261,10 +2261,12 @@ class JLink(object):
           power_on (boolean): whether to power the target before flashing
 
         Returns:
-          Integer value greater than or equal to zero.  Has no significance.
+          Status code from the J-Link SDK. A value greater than or equal to zero
+          indicates success. The exact value has no significance and should not
+          be relied upon. This is returned for backward compatibility only.
 
         Raises:
-          JLinkException: on hardware errors.
+          JLinkFlashException: on hardware errors (when status code < 0).
         """
         if on_progress is not None:
             # Set the function to be called on flash programming progress.
@@ -2285,11 +2287,13 @@ class JLink(object):
             pass
 
         # Program the target.
-        bytes_flashed = self._dll.JLINK_DownloadFile(os.fsencode(path), addr)
-        if bytes_flashed < 0:
-            raise errors.JLinkFlashException(bytes_flashed)
+        # Note: JLINK_DownloadFile returns a status code, not the number of bytes written.
+        # A value >= 0 indicates success, < 0 indicates an error.
+        status_code = self._dll.JLINK_DownloadFile(os.fsencode(path), addr)
+        if status_code < 0:
+            raise errors.JLinkFlashException(status_code)
 
-        return bytes_flashed
+        return status_code
 
     @connection_required
     def reset(self, ms=0, halt=True):
