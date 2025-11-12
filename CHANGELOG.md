@@ -8,12 +8,31 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 ### Added
 - @fxd0h: Added `search_ranges` parameter to `rtt_start()` to specify custom RTT search ranges (Issue #209)
-- @fxd0h: Added `reset_before_start` parameter to `rtt_start()` for devices requiring reset before RTT
-- @fxd0h: Auto-generate RTT search ranges from device RAM info when available (Issue #249)
+- @fxd0h: Added `block_address` parameter to `rtt_start()` for explicit RTT control block address (Issue #51)
+- @fxd0h: Added `rtt_get_block_address()` method to search for RTT control block in memory (Issue #209)
+- @fxd0h: Added `jlink_path` parameter to `JLink.__init__()` to specify custom J-Link SDK directory (Issue #251)
+- @fxd0h: Added `Library.from_directory()` class method to load J-Link DLL from specific directory (Issue #251)
+- @fxd0h: Added `read_idcode()` method to read device IDCODE via SWD/JTAG for connection health checks (Issue #252)
+- @fxd0h: Added `check_connection_health()` method for firmware-independent reset detection (Issue #252)
+- @fxd0h: Created `pylink.rtt` convenience module with high-level RTT functions:
+  - `auto_detect_rtt_ranges()` - Auto-generate search ranges from device RAM
+  - `start_rtt_with_polling()` - Start RTT with automatic polling until ready
+  - `reconnect_rtt()` - Reconnect RTT after device reset with parameter reconfiguration
+  - `rtt_context()` - Context manager for automatic RTT cleanup
+  - `monitor_rtt_with_reset_detection()` - Monitor RTT with automatic reset detection
+  - `read_rtt_without_echo()` - Read RTT data filtering out local echo characters (Issue #111)
+
+### Changed
+- @fxd0h: Simplified `rtt_start()` API per maintainer feedback - removed polling parameters and internal polling logic
+- @fxd0h: `rtt_start()` now only configures search ranges if explicitly provided (no auto-generation)
+- @fxd0h: Improved `rtt_write()` error messages to guide users when down buffers are missing (Issue #234)
+- @fxd0h: Improved `rtt_read()` error handling for error code -11 with detailed diagnostics (Issue #160)
+- @fxd0h: Moved convenience features (polling, auto-detection) to `pylink.rtt` module per maintainer feedback
+- @fxd0h: Improved `get_device_index()` validation and error messages with device name suggestions (Issue #249)
 
 ### Fixed
-- @fxd0h: Improved RTT auto-detection reliability with polling mechanism
-- @fxd0h: Ensure device is running before starting RTT (fixes Issue #249)
+- @fxd0h: Fixed `exec_command()` to distinguish informational messages from errors (Issue #171)
+- @fxd0h: Improved RTT error messages to help diagnose configuration issues (Issues #234, #160)
 
 ## [2.0.0]
 ### Changed

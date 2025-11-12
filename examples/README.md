@@ -56,7 +56,14 @@ Tool for updating J-Links on a Windows platform.
 ### Real Time Transfer (RTT)
 
 #### Source
-[RTT](./pylink-rtt)
+[RTT Script](./pylink-rtt) | [RTT Examples](./rtt_example.py)
 
 #### Description
-Tool for a simple command-line terminal that communicates over RTT.
+- **RTT Script**: Command-line terminal that communicates over RTT
+- **RTT Examples**: Python examples demonstrating RTT usage with the convenience module `pylink.rtt`, including:
+  - Auto-detection of search ranges
+  - Polling for RTT readiness
+  - Reconnection after device reset
+  - Context manager for automatic cleanup
+  - Monitoring with reset detection
+  - Reading without local echo
