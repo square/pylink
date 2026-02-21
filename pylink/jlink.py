@@ -731,7 +731,7 @@ class JLink(object):
             # preserved here to simplify workflows using one emulator:
             result = self._dll.JLINKARM_SelectUSB(0)
             if result != 0:
-                raise errors.JlinkException('Could not connect to default emulator.')
+                raise errors.JLinkException('Could not connect to default emulator.')
 
         # Acquire the lock for the J-Link being opened only if the serial
         # number was passed in, otherwise skip it here.  Note that the lock
