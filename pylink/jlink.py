@@ -943,6 +943,7 @@ class JLink(object):
 
         return None
 
+    @open_required
     def exec_command(self, cmd):
         """Executes the given command.
 
