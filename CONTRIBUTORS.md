@@ -30,3 +30,4 @@ In the order of appearance in the commit history:
 | -                         | @mtnpke            |
 | Omri Sarig                | @omrisarig13       |
 | Issam E. Maghni           | @concatime         |
+| Patrik Bachan             | @diggit            |
