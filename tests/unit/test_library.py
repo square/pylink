@@ -216,6 +216,7 @@ class TestLibrary(unittest.TestCase):
         mock_load_library.assert_called_once()
 
     @mock.patch('sys.platform', new='windows')
+    @mock.patch('sys.maxsize', new=(2**63-1))
     @mock.patch('pylink.library.open')
     @mock.patch('os.remove', new=mock.Mock())
     @mock.patch('tempfile.NamedTemporaryFile', new=mock.Mock())
