@@ -570,7 +570,7 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(JLinkException):
             self.jlink.open()
 
     def test_jlink_open_unspecified_context_manager(self):
@@ -587,7 +587,7 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(JLinkException):
             with jlink.JLink(self.lib) as jl:
                 self.assertTrue(jl.opened())  # Opened in CM.
             self.dll.JLINKARM_Close.assert_called()  # Closed on exit.
