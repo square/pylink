@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/square/pylink.svg?branch=master)](https://travis-ci.org/square/pylink)
 
+**Note:** This is a modified version with RTT improvements. See `issues/` directory for details on fixes and enhancements.
+
 Python interface for the SEGGER J-Link.
 
 
@@ -69,6 +71,8 @@ $ export LD_LIBRARY_PATH=/path/to/SEGGER/JLink:$LD_LIBRARY_PATH
 
 ## Usage
 
+### Basic Usage
+
 ```
 import pylink
 
@@ -86,6 +90,34 @@ if __name__ == '__main__':
    jlink.flash(firmware, 0x0)
    jlink.reset()
 ```
+
+### RTT (Real-Time Transfer) Usage
+
+For RTT operations, use the convenience module `pylink.rtt`:
+
+```python
+import pylink
+from pylink.rtt import start_rtt_with_polling, rtt_context
+
+jlink = pylink.JLink()
+jlink.open()
+jlink.set_tif(pylink.enums.JLinkInterfaces.SWD)
+jlink.connect('NRF54L15_M33')
+
+# Start RTT with auto-detected search ranges
+if start_rtt_with_polling(jlink):
+    data = jlink.rtt_read(0, 1024)
+    print(bytes(data))
+
+# Or use context manager for automatic cleanup
+with rtt_context(jlink, search_ranges=[(0x20000000, 0x2003FFFF)]) as j:
+    data = j.rtt_read(0, 1024)
+    print(bytes(data))
+
+jlink.close()
+```
+
+For more RTT examples, see `examples/rtt_example.py`.
 
 
 ## Troubleshooting

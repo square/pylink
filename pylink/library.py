@@ -280,6 +280,97 @@ class Library(object):
                     if f.startswith(dll):
                         yield os.path.join(dir_path, f)
 
+    # CHANGED: Added new class method to load J-Link DLL from specific directory (Issue #251)
+    @classmethod
+    def from_directory(cls, directory, use_tmpcpy=None):
+        """Create Library instance by searching for DLL/SO in given directory.
+
+        Searches for J-Link DLL/SO files in the specified directory using
+        platform-specific naming conventions. This allows loading a specific
+        J-Link SDK version or custom installation location.
+
+        The method searches for:
+        - Windows: "JLink_x64.dll" or "JLinkARM.dll" (via get_appropriate_windows_sdk_name())
+        - Mac: "libjlinkarm.dylib"
+        - Linux: "libjlinkarm.so"
+
+        Files starting with "libjlinkarm" are also accepted (for versioned libraries
+        like "libjlinkarm.so.7.82").
+
+        Args:
+          cls (Library): the ``Library`` class
+          directory (str): Directory path to search for J-Link DLL/SO.
+            Must be an existing directory. Can be absolute or relative path.
+            Example: "/opt/SEGGER/JLink_8228" or "C:/Program Files/SEGGER/JLink_8228"
+          use_tmpcpy (Optional[bool]): ``True`` to load a temporary copy of
+            J-Link DLL, ``None`` to dynamically decide based on DLL version.
+            See Library.__init__() for details on temporary copy behavior.
+
+        Returns:
+          Library: Library instance with DLL loaded from directory.
+            The DLL is loaded and ready to use. Raises exception if loading fails.
+
+        Raises:
+          OSError: If:
+            - Directory doesn't exist
+            - No J-Link DLL/SO found in directory
+            - Found DLL/SO cannot be loaded (invalid or corrupted)
+
+        Note:
+          This method verifies that the found DLL/SO can be loaded using
+          can_load_library() before returning. This helps catch issues early.
+
+          Use this method when you need to specify a custom J-Link SDK path,
+          for example in CI/CD environments or when multiple SDK versions are
+          installed.
+
+        Example:
+          Load J-Link SDK from custom location::
+
+            >>> lib = Library.from_directory("/opt/SEGGER/JLink_8228")
+            >>> jlink = JLink(lib=lib)
+
+          Or use jlink_path parameter in JLink.__init__()::
+
+            >>> jlink = JLink(jlink_path="/opt/SEGGER/JLink_8228")
+
+        Related:
+          - Library.__init__(): Create Library from explicit DLL path
+          - JLink.__init__(): Use jlink_path parameter for convenience
+          - Issue #251: Specify JLink home path
+        """
+        # CHANGED: New method implementation (Issue #251)
+        if not os.path.isdir(directory):
+            raise OSError("Directory does not exist: %s" % directory)
+
+        # Determine platform-specific DLL name based on OS
+        if sys.platform.startswith('win') or sys.platform.startswith('cygwin'):
+            dll_name = cls.get_appropriate_windows_sdk_name() + '.dll'
+        elif sys.platform.startswith('darwin'):
+            dll_name = cls.JLINK_SDK_NAME + '.dylib'
+        else:
+            dll_name = cls.JLINK_SDK_NAME + '.so'
+
+        # CHANGED: Search directory for J-Link DLL/SO (Issue #251)
+        # Supports both exact match and versioned libraries (e.g., libjlinkarm.so.7.82)
+        dll_path = None
+        for item in os.listdir(directory):
+            item_path = os.path.join(directory, item)
+            if os.path.isfile(item_path):
+                # Check exact match or starts with (for versioned libraries)
+                if item == dll_name or item.startswith(cls.JLINK_SDK_NAME):
+                    # Verify it's loadable before using it
+                    if cls.can_load_library(item_path):
+                        dll_path = item_path
+                        break
+
+        if dll_path is None:
+            raise OSError("No J-Link DLL/SO found in directory: %s" % directory)
+
+        # Create Library instance and load the DLL
+        lib = cls(dllpath=dll_path, use_tmpcpy=use_tmpcpy)
+        return lib
+
     def __init__(self, dllpath=None, use_tmpcpy=None):
         """Initializes an instance of a ``Library``.
 

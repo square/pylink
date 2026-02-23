@@ -54,3 +54,24 @@ This submodule provides different utility functions.
     :members:
     :undoc-members:
     :show-inheritance:
+
+RTT Convenience Functions
+--------------------------
+
+This submodule provides high-level convenience functions for RTT (Real-Time Transfer)
+operations. It wraps the low-level JLink API and handles common use cases like
+auto-detection, polling, and reconnection.
+
+The low-level API in `jlink.py` is kept simple per maintainer feedback. This module
+provides convenience features like:
+
+- Automatic search range generation from device RAM info
+- Polling for RTT readiness after start
+- Automatic reconnection after device resets
+- Context manager for automatic cleanup
+- Reset detection and monitoring
+
+.. automodule:: pylink.rtt
+    :members:
+    :undoc-members:
+    :show-inheritance:

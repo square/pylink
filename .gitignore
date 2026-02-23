@@ -102,3 +102,6 @@ ENV/
 
 # Mac Artifacts
 **.DS_Store
+
+# Personal documentation and sandbox (not part of pylink repo)
+sandbox/github/

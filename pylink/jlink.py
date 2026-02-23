@@ -70,6 +70,19 @@ class JLink(object):
     # Maximum number of methods of debug entry at a single time.
     MAX_NUM_MOES = 8
 
+    # Informational message patterns returned by some J-Link commands in err_buf
+    # even when successful. These should not be treated as errors.
+    _INFORMATIONAL_MESSAGE_PATTERNS = [
+        'RTT Telnet Port set to',
+        'Device selected',
+        'Device =',
+        'Speed =',
+        'Target interface set to',
+        'Target voltage',
+        'Reset delay',
+        'Reset type',
+    ]
+
     def minimum_required(version):
         """Decorator to specify the minimum SDK version required.
 
@@ -248,7 +261,7 @@ class JLink(object):
         return _interface_required
 
     def __init__(self, lib=None, log=None, detailed_log=None, error=None, warn=None, unsecure_hook=None,
-                 serial_no=None, ip_addr=None, open_tunnel=False, use_tmpcpy=None):
+                 serial_no=None, ip_addr=None, open_tunnel=False, use_tmpcpy=None, jlink_path=None):
         """Initializes the J-Link interface object.
 
         Note:
@@ -282,17 +295,38 @@ class JLink(object):
             (however, it is still closed when exiting the context manager).
           use_tmpcpy (Optional[bool]): ``True`` to load a temporary copy of
             J-Link DLL, ``None`` to dynamically decide based on DLL version.
+          jlink_path (str, optional): Directory path to search for JLink DLL/SO.
+            If provided, searches this directory instead of default platform-specific
+            locations. Useful when:
+            - Multiple J-Link SDK versions installed
+            - Custom J-Link installation location
+            - CI/CD environments with specific SDK paths
+            Example paths:
+            - Linux/Mac: "/opt/SEGGER/JLink_8228"
+            - Windows: "C:/Program Files/SEGGER/JLink_8228"
+            The directory must contain the J-Link DLL/SO file:
+            - Windows: "JLink_x64.dll" or "JLinkARM.dll"
+            - Mac: "libjlinkarm.dylib"
+            - Linux: "libjlinkarm.so"
+            Fully backward compatible (defaults to None, uses standard search).
+            Raises OSError if directory doesn't exist or no DLL/SO found.
 
         Returns:
           ``None``
 
         Raises:
           TypeError: if lib's DLL is ``None``
+          OSError: if jlink_path is provided but no DLL/SO found in directory
         """
         self._initialized = False
 
         if lib is None:
-            lib = library.Library(use_tmpcpy=use_tmpcpy)
+            # CHANGED: Added jlink_path parameter support (Issue #251)
+            # Allows specifying custom J-Link SDK installation directory
+            if jlink_path is not None:
+                lib = library.Library.from_directory(jlink_path, use_tmpcpy=use_tmpcpy)
+            else:
+                lib = library.Library(use_tmpcpy=use_tmpcpy)
 
         if lib.dll() is None:
             raise TypeError('Expected to be given a valid DLL.')
@@ -638,12 +672,37 @@ class JLink(object):
           Index of the device with the matching chip name.
 
         Raises:
-          ``JLinkException``: if chip is unsupported.
+          ``JLinkException``: if chip is unsupported. The error message includes
+            the attempted device name and suggests similar device names if available.
+          ``ValueError``: if chip_name is None or empty.
         """
+        # CHANGED: Validate chip_name before processing (Issue #249)
+        if chip_name is None:
+            raise ValueError('Device name cannot be None. Please provide a device name (e.g., "NRF54L15_M33", "Cortex-M33").')
+        
+        if not isinstance(chip_name, str):
+            raise TypeError('Device name must be a string, got %s' % type(chip_name).__name__)
+        
+        chip_name = chip_name.strip()
+        if not chip_name:
+            raise ValueError('Device name cannot be empty. Please provide a device name (e.g., "NRF54L15_M33", "Cortex-M33").')
+        
         index = self._dll.JLINKARM_DEVICE_GetIndex(chip_name.encode('ascii'))
 
         if index <= 0:
-            raise errors.JLinkException('Unsupported device selected.')
+            # CHANGED: Improved error message with device name and simple suggestions (Issue #249)
+            error_msg = 'Unsupported device selected: "%s".' % chip_name
+            
+            # CHANGED: Lightweight suggestion - only try common variations without heavy search
+            try:
+                variations = self._try_device_name_variations(chip_name)
+                if variations:
+                    error_msg += ' Try: %s' % ', '.join(variations)
+            except Exception:
+                # If variation check fails, just use basic error message
+                pass
+            
+            raise errors.JLinkException(error_msg)
 
         return index
 
@@ -680,16 +739,64 @@ class JLink(object):
         result = self._dll.JLINKARM_DEVICE_GetInfo(index, ctypes.byref(info))
         return info
 
+
+    def _try_device_name_variations(self, chip_name):
+        """Try common variations of device name (lightweight, no heavy searching).
+        
+        This method only tries a few common naming pattern variations without
+        searching through all devices. This keeps it fast and non-intrusive.
+        
+        Args:
+            chip_name (str): The device name that was requested
+            
+        Returns:
+            list: List of variation names that exist (up to 3)
+        """
+        variations = []
+        chip_name_upper = chip_name.upper()
+        
+        # CHANGED: Handle Cortex naming variations (Issue #249)
+        # Common pattern: CORTEX_M33 -> Cortex-M33
+        if chip_name_upper.startswith('CORTEX_'):
+            # Try with hyphen instead of underscore
+            variation = chip_name_upper.replace('CORTEX_', 'Cortex-', 1)
+            variations.append(variation)
+        
+        # Common variations for Nordic devices
+        # Try adding underscore if missing (e.g., NRF54L15 -> NRF54L15_M33)
+        if 'NRF' in chip_name_upper and '54' in chip_name_upper and '_M33' not in chip_name_upper:
+            # Try common Nordic naming pattern
+            variations.append(chip_name_upper + '_M33')
+        
+        # Test which variations actually exist (quick check, no iteration)
+        valid_variations = []
+        for var in variations:
+            try:
+                index = self._dll.JLINKARM_DEVICE_GetIndex(var.encode('ascii'))
+                if index > 0:
+                    valid_variations.append(var)
+            except Exception:
+                continue
+        
+        return valid_variations[:3]  # Return up to 3 valid variations
+
     def open(self, serial_no=None, ip_addr=None):
         """Connects to the J-Link emulator (defaults to USB).
+
+        If ``serial_no`` was specified in ``__init__()`` and not provided here,
+        the serial number from ``__init__()`` will be used. Similarly, if
+        ``ip_addr`` was specified in ``__init__()`` and not provided here, it
+        will be used.
 
         If ``serial_no`` and ``ip_addr`` are both given, this function will
         connect to the J-Link over TCP/IP.
 
         Args:
           self (JLink): the ``JLink`` instance
-          serial_no (int): serial number of the J-Link
-          ip_addr (str): IP address and port of the J-Link (e.g. 192.168.1.1:80)
+          serial_no (int, optional): serial number of the J-Link.
+            If None and serial_no was specified in __init__(), uses that value.
+          ip_addr (str, optional): IP address and port of the J-Link (e.g. 192.168.1.1:80).
+            If None and ip_addr was specified in __init__(), uses that value.
 
         Returns:
           ``None``
@@ -709,6 +816,15 @@ class JLink(object):
         #        NET_WriteRead(): USB communication not locked
         #        PID0017A8C (): Lock count error (decrement)
         self.close()
+
+        # If serial_no or ip_addr not provided but were specified in __init__, use them
+        # This ensures that values passed to constructor are used when open() is called
+        # without explicit parameters, avoiding the need for additional queries.
+        if serial_no is None and ip_addr is None:
+            serial_no = self.__serial_no
+
+        if ip_addr is None:
+            ip_addr = self.__ip_addr
 
         if ip_addr is not None:
             addr, port = ip_addr.rsplit(':', 1)
@@ -959,6 +1075,12 @@ class JLink(object):
         Raises:
           JLinkException: if the command is invalid or fails.
 
+        Note:
+          Some commands return informational messages in the error buffer even
+          when successful (e.g., "RTT Telnet Port set to 19021"). These are
+          automatically detected and not treated as errors, but are logged at
+          DEBUG level.
+
         See Also:
           For a full list of the supported commands, please see the SEGGER
           J-Link documentation,
@@ -969,9 +1091,24 @@ class JLink(object):
         err_buf = ctypes.string_at(err_buf).decode()
 
         if len(err_buf) > 0:
-            # This is how they check for error in the documentation, so check
-            # this way as well.
-            raise errors.JLinkException(err_buf.strip())
+            err_msg = err_buf.strip()
+            
+            # Check if this is an informational message, not an error.
+            # Some J-Link commands return informational messages in err_buf even
+            # when successful (e.g., "RTT Telnet Port set to 19021").
+            is_informational = any(
+                pattern.lower() in err_msg.lower()
+                for pattern in self._INFORMATIONAL_MESSAGE_PATTERNS
+            )
+            
+            if is_informational:
+                # Log at debug level but don't raise exception
+                logger.debug('J-Link informational message: %s', err_msg)
+            else:
+                # This appears to be a real error
+                # This is how they check for error in the documentation, so check
+                # this way as well.
+                raise errors.JLinkException(err_msg)
 
         return res
 
@@ -2245,10 +2382,12 @@ class JLink(object):
           power_on (boolean): whether to power the target before flashing
 
         Returns:
-          Integer value greater than or equal to zero.  Has no significance.
+          Status code from the J-Link SDK. A value greater than or equal to zero
+          indicates success. The exact value has no significance and should not
+          be relied upon. This is returned for backward compatibility only.
 
         Raises:
-          JLinkException: on hardware errors.
+          JLinkFlashException: on hardware errors (when status code < 0).
         """
         if on_progress is not None:
             # Set the function to be called on flash programming progress.
@@ -2269,11 +2408,13 @@ class JLink(object):
             pass
 
         # Program the target.
-        bytes_flashed = self._dll.JLINK_DownloadFile(os.fsencode(path), addr)
-        if bytes_flashed < 0:
-            raise errors.JLinkFlashException(bytes_flashed)
+        # Note: JLINK_DownloadFile returns a status code, not the number of bytes written.
+        # A value >= 0 indicates success, < 0 indicates an error.
+        status_code = self._dll.JLINK_DownloadFile(os.fsencode(path), addr)
+        if status_code < 0:
+            raise errors.JLinkFlashException(status_code)
 
-        return bytes_flashed
+        return status_code
 
     @connection_required
     def reset(self, ms=0, halt=True):
@@ -3484,6 +3625,9 @@ class JLink(object):
             register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
+    # Alias for backward compatibility (used by some code)
+    reg_read = register_read
+
     @connection_required
     def register_read_multiple(self, register_indices):
         """Retrieves the values from the registers specified.
@@ -3587,6 +3731,230 @@ class JLink(object):
             raise errors.JLinkException(res)
 
         return None
+
+    @connection_required
+    def read_idcode(self):
+        """Reads the device IDCODE via SWD/JTAG.
+
+        IDCODE (Device Identification Code) is part of the TAP controller and
+        is always accessible via SWD/JTAG, regardless of firmware state. This
+        makes it a reliable method for checking device connection health.
+
+        This method is useful for:
+        - Detecting device resets (IDCODE read fails during reset)
+        - Verifying SWD/JTAG connection health
+        - Firmware-independent device accessibility checks
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          int: The device IDCODE value (32-bit unsigned integer)
+
+        Raises:
+          JLinkException: if IDCODE could not be read (device may be reset or disconnected)
+
+        Note:
+          IDCODE is universal and works with all architectures (ARM Cortex-M, Cortex-A,
+          RISC-V, etc.) that support SWD/JTAG debugging.
+
+        Example:
+          >>> jlink = pylink.JLink()
+          >>> jlink.open()
+          >>> jlink.connect('Cortex-M33')
+          >>> try:
+          ...     idcode = jlink.read_idcode()
+          ...     print(f"IDCODE: 0x{idcode:08X}")
+          ... except pylink.errors.JLinkException:
+          ...     print("Device reset detected or disconnected")
+        """
+        # Try different possible function names for reading IDCODE
+        # JLINKARM_ReadIdCode is the standard J-Link SDK function
+        idcode_readers = [
+            'JLINKARM_ReadIdCode',
+            'JLINK_ReadIdCode',
+            'ReadIdCode',
+        ]
+
+        for func_name in idcode_readers:
+            if hasattr(self._dll, func_name):
+                try:
+                    read_func = getattr(self._dll, func_name)
+                    idcode = read_func()
+                    # IDCODE should be non-zero (0 indicates failure)
+                    if idcode == 0:
+                        raise errors.JLinkException('IDCODE read returned 0 (device may be reset or disconnected)')
+                    return idcode & 0xFFFFFFFF  # Ensure 32-bit value
+                except (AttributeError, ctypes.ArgumentError) as e:
+                    # Function exists but signature may be wrong, try next
+                    logger.debug('Failed to call %s: %s', func_name, e)
+                    continue
+                except Exception as e:
+                    # Other errors (device reset, disconnection, etc.)
+                    raise errors.JLinkException('Failed to read IDCODE: %s' % str(e))
+
+        # No IDCODE reader function found
+        raise errors.JLinkException('IDCODE read function not available in J-Link DLL')
+
+    @connection_required
+    def check_connection_health(self, detailed=False):
+        """Checks device connection health by reading hardware resources.
+
+        This method performs firmware-independent connection health checks by
+        reading resources that should always be accessible via SWD/JTAG:
+        - IDCODE (device identification code) - universal, works for all architectures
+        - CPUID register (ARM Cortex-M at 0xE000ED00) - architecture-specific
+        - Processor registers (e.g., R0) - architecture-dependent but registers always exist
+
+        **Key insight**: If **ALL** reads fail, it indicates a reset occurred
+        (device temporarily unavailable during reset, then reconnects). If **ANY**
+        read succeeds, the device is accessible (no reset).
+
+        This method is useful for:
+        - Detecting device resets without firmware cooperation
+        - Verifying SWD/JTAG connection health
+        - Implementing reliable reset detection in monitoring applications
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          detailed (bool, optional): If True, returns detailed health status dictionary.
+            If False (default), returns simple boolean.
+
+        Returns:
+          bool or dict: If ``detailed=False``, returns ``True`` if device is accessible,
+            ``False`` if reset/disconnected. If ``detailed=True``, returns dictionary with:
+            - ``idcode`` (int or None): IDCODE value if read succeeded
+            - ``cpuid`` (int or None): CPUID value if read succeeded (ARM Cortex-M only)
+            - ``register_r0`` (int or None): R0 register value if read succeeded
+            - ``all_accessible`` (bool): True if at least one read succeeded
+
+        Raises:
+          JLinkException: if connection is not established (use ``connected()`` first)
+
+        Note:
+          - CPUID address (0xE000ED00) is specific to ARM Cortex-M architecture.
+            For other architectures (Cortex-A, RISC-V, etc.), CPUID read is skipped.
+          - The method remains reliable because IDCODE and register reads are universal.
+          - This method does not require the device to be running firmware.
+
+        Example:
+          >>> jlink = pylink.JLink()
+          >>> jlink.open()
+          >>> jlink.connect('Cortex-M33')
+          >>> # Simple health check
+          >>> is_accessible = jlink.check_connection_health()
+          >>> if not is_accessible:
+          ...     print("Device reset detected")
+          >>> # Detailed health check
+          >>> health = jlink.check_connection_health(detailed=True)
+          >>> print(f"IDCODE: {health['idcode']}")
+          >>> print(f"CPUID: {health['cpuid']}")
+          >>> print(f"All accessible: {health['all_accessible']}")
+        """
+        idcode_value = None
+        cpuid_value = None
+        register_r0_value = None
+
+        idcode_ok = False
+        cpuid_ok = False
+        register_ok = False
+
+        # Method 1: Try to read IDCODE (universal, works for all architectures)
+        try:
+            idcode_value = self.read_idcode()
+            idcode_ok = True
+            logger.debug('IDCODE check OK: 0x%08X', idcode_value)
+        except errors.JLinkException as e:
+            logger.debug('IDCODE read failed: %s', e)
+            # Don't return immediately - check other methods first
+
+        # Method 2: Read CPUID register (ARM Cortex-M only)
+        # CPUID address (0xE000ED00) is NOT universal - it's specific to ARM Cortex-M
+        # Only attempt this if we know the device is ARM Cortex-M
+        is_cortex_m = False
+        if self._device and hasattr(self._device, 'name'):
+            device_name = self._device.name
+            if device_name:
+                device_lower = device_name.lower()
+                is_cortex_m = any(core in device_lower for core in [
+                    'cortex-m', 'm33', 'm4', 'm3', 'm7', 'm0', 'm23', 'm52', 'm55', 'm85'
+                ])
+
+        if is_cortex_m:
+            try:
+                cpuid_data = self.memory_read32(0xE000ED00, 1)
+                cpuid_value = cpuid_data[0] if isinstance(cpuid_data, (list, tuple)) else cpuid_data
+                cpuid_ok = True
+                logger.debug('CPUID check OK: 0x%08X', cpuid_value)
+            except errors.JLinkException as e:
+                logger.debug('CPUID read failed: %s', e)
+                # Don't return immediately - check other methods first
+        else:
+            logger.debug('Skipping CPUID read (not ARM Cortex-M device)')
+
+        # Method 3: Verify SWD connection and read basic register (universal)
+        # Note: Register reads may fail if CPU is running (this is normal, not an error)
+        try:
+            # Check if connection is still valid
+            if not self.connected():
+                logger.debug('SWD connection lost')
+                # If connection is lost, definitely reset occurred
+                if detailed:
+                    return {
+                        'idcode': idcode_value,
+                        'cpuid': cpuid_value,
+                        'register_r0': register_r0_value,
+                        'all_accessible': False
+                    }
+                return False
+
+            # Try to read register R0 (always exists, should be accessible)
+            # Note: This may fail if CPU is running, which is normal and not an error
+            # We check if CPU is halted first to avoid unnecessary exceptions
+            try:
+                is_halted = self.halted()
+                if is_halted:
+                    # CPU is halted, safe to read registers
+                    register_r0_value = self.register_read(0)
+                    register_ok = True
+                    logger.debug('Register read check OK: R0=0x%08X', register_r0_value)
+                else:
+                    # CPU is running - register reads will fail, but this is normal
+                    # Connection is still valid, so we consider this as "accessible"
+                    # (IDCODE and CPUID checks already confirmed accessibility)
+                    logger.debug('CPU is running - skipping register read (normal operation)')
+                    # If IDCODE or CPUID already succeeded, we know device is accessible
+                    # Register read failure while CPU is running is not an error
+                    if idcode_ok or cpuid_ok:
+                        register_ok = True  # Consider accessible if other methods worked
+            except errors.JLinkException as e:
+                error_msg = str(e).lower()
+                # Check if error is due to CPU running (this is normal, not a connection problem)
+                if 'running' in error_msg or 'halted' in error_msg:
+                    logger.debug('Register read skipped (CPU state): %s', e)
+                    # If IDCODE or CPUID already succeeded, device is accessible
+                    if idcode_ok or cpuid_ok:
+                        register_ok = True
+                else:
+                    # Other error - might indicate connection problem
+                    logger.debug('Register read failed: %s', e)
+        except errors.JLinkException as e:
+            logger.debug('Connection check failed: %s', e)
+            # Don't return immediately - check other methods first
+
+        # Decision: If ANY method succeeded, device is accessible (no reset)
+        # Only if ALL methods failed, assume reset occurred
+        all_accessible = idcode_ok or cpuid_ok or register_ok
+
+        if detailed:
+            return {
+                'idcode': idcode_value if idcode_ok else None,
+                'cpuid': cpuid_value if cpuid_ok else None,
+                'register_r0': register_r0_value if register_ok else None,
+                'all_accessible': all_accessible
+            }
+
+        return all_accessible
 
     @connection_required
     def ice_register_read(self, register_index):
@@ -5276,25 +5644,463 @@ class JLink(object):
 #
 ###############################################################################
 
+    # Constants for RTT search range validation
+    MAX_SEARCH_RANGE_SIZE = 0x1000000  # 16MB maximum search range size
+    DEFAULT_FALLBACK_SIZE = 0x10000    # 64KB fallback search range size
+    DEFAULT_RTT_TIMEOUT = 10.0          # Default timeout for RTT detection (seconds)
+    DEFAULT_POLL_INTERVAL = 0.05        # Default initial polling interval (seconds)
+    DEFAULT_MAX_POLL_INTERVAL = 0.5     # Default maximum polling interval (seconds)
+    DEFAULT_BACKOFF_FACTOR = 1.5        # Default exponential backoff multiplier
+    DEFAULT_VERIFICATION_DELAY = 0.1    # Default verification delay (seconds)
+
+    # Device presets for common microcontrollers
+    # Format: device_name: (ram_start, ram_end)
+    RTT_DEVICE_PRESETS = {
+        # Nordic Semiconductor nRF series
+        'nRF54L15': (0x20000000, 0x2003FFFF),  # 256KB RAM
+        'nRF52840': (0x20000000, 0x2003FFFF),  # 256KB RAM
+        'nRF52832': (0x20000000, 0x20007FFF),  # 32KB RAM
+        'nRF52833': (0x20000000, 0x2003FFFF),  # 256KB RAM
+        'nRF5340': (0x20000000, 0x2003FFFF),   # 256KB RAM (app core)
+        # STMicroelectronics STM32 series
+        'STM32F4': (0x20000000, 0x2001FFFF),    # 128KB RAM (common)
+        'STM32F7': (0x20000000, 0x2004FFFF),   # 320KB RAM (common)
+        'STM32H7': (0x20000000, 0x2001FFFF),    # 128KB RAM (DTCM)
+        'STM32L4': (0x20000000, 0x2000FFFF),    # 64KB RAM (common)
+        # Generic Cortex-M (common RAM locations)
+        'Cortex-M0': (0x20000000, 0x2000FFFF),  # 64KB RAM (typical)
+        'Cortex-M3': (0x20000000, 0x2000FFFF), # 64KB RAM (typical)
+        'Cortex-M4': (0x20000000, 0x2001FFFF), # 128KB RAM (typical)
+        'Cortex-M33': (0x20000000, 0x2003FFFF), # 256KB RAM (typical)
+    }
+
+    def _get_device_preset(self, device_name):
+        """Gets RTT search range preset for a known device.
+
+        Args:
+          device_name (str): Name of the device (case-insensitive).
+
+        Returns:
+          Tuple[int, int] or None: (start, end) address range if preset exists, None otherwise.
+        """
+        if not device_name:
+            return None
+
+        device_name_lower = device_name.lower()
+        for preset_name, preset_range in self.RTT_DEVICE_PRESETS.items():
+            if preset_name.lower() in device_name_lower:
+                logger.debug('Found device preset for %s: 0x%X - 0x%X', preset_name, *preset_range)
+                return preset_range
+
+        return None
+
+    def _validate_and_normalize_search_range(self, start, end):
+        """Validates and normalizes a search range tuple.
+
+        Args:
+          start (int): Start address of the search range.
+          end (int): End address of the search range.
+
+        Returns:
+          Tuple[int, int]: Normalized (start_address, size) tuple.
+
+        Raises:
+          ValueError: If the range is invalid (start > end, size == 0, or size > 16MB).
+        """
+        start = int(start) & 0xFFFFFFFF
+        end = int(end) & 0xFFFFFFFF
+
+        if end < start:
+            # Check for wrap-around (32-bit unsigned)
+            if (end & 0xFFFFFFFF) < (start & 0xFFFFFFFF):
+                raise ValueError(
+                    'End address 0x%X must be >= start address 0x%X '
+                    '(or provide size instead of end address)' % (end, start)
+                )
+
+        size = (end - start + 1) & 0xFFFFFFFF
+        if size == 0:
+            raise ValueError('Search range size is zero (start == end)')
+        if size > self.MAX_SEARCH_RANGE_SIZE:
+            raise ValueError(
+                'Search range size 0x%X exceeds maximum of %dMB (0x%X)' % (
+                    size, self.MAX_SEARCH_RANGE_SIZE // (1024 * 1024),
+                    self.MAX_SEARCH_RANGE_SIZE
+                )
+            )
+
+        return (start, size)
+
+    def _set_rtt_search_ranges(self, search_ranges):
+        """Sets RTT search ranges using SetRTTSearchRanges command.
+
+        This helper method validates, normalizes, and configures RTT search ranges.
+        According to UM08001, SetRTTSearchRanges accepts multiple ranges in the format:
+        SetRTTSearchRanges <start1> <size1> [<start2> <size2> ...]
+
+        Args:
+          search_ranges (List[Tuple[int, int]]): List of (start, end) address tuples.
+
+        Returns:
+          str: Description of the search range used (for logging), or None if failed.
+
+        Note:
+          This method logs warnings on errors but does not raise exceptions to allow
+          RTT start to proceed even if search range configuration fails (auto-detection
+          may still work without explicit ranges).
+        """
+        if not search_ranges or len(search_ranges) == 0:
+            return None
+
+        try:
+            # Build command with all provided ranges
+            # According to UM08001, multiple ranges are supported
+            cmd_parts = ['SetRTTSearchRanges']
+            range_descriptions = []
+
+            for i, (start, end) in enumerate(search_ranges):
+                try:
+                    start_addr, size = self._validate_and_normalize_search_range(start, end)
+                    cmd_parts.append('%X' % start_addr)
+                    cmd_parts.append('%X' % size)
+                    range_descriptions.append(
+                        '0x%X - 0x%X (size: 0x%X)' % (
+                            start_addr, (start_addr + size - 1) & 0xFFFFFFFF, size
+                        )
+                    )
+                except ValueError as e:
+                    logger.warning('Invalid search range %d: %s', i, e)
+                    # Skip invalid range but continue with others
+                    continue
+
+            if len(range_descriptions) == 0:
+                logger.error('No valid search ranges provided')
+                return None
+
+            # Execute command with all valid ranges
+            cmd = ' '.join(cmd_parts)
+            try:
+                # Escape any special characters in command (defense in depth)
+                # exec_command expects a string, so we ensure it's safe
+                result = self.exec_command(cmd)
+                if result != 0:
+                    logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                time.sleep(0.3)  # Wait after setting search ranges
+                range_desc = ', '.join(range_descriptions)
+                if len(search_ranges) > len(range_descriptions):
+                    logger.warning(
+                        'Only %d of %d search ranges were valid and configured',
+                        len(range_descriptions), len(search_ranges)
+                    )
+                return range_desc
+            except errors.JLinkException as e:
+                logger.error('Failed to set RTT search ranges: %s', e)
+                return None
+            except Exception as e:
+                logger.error('Unexpected error setting search ranges: %s', e)
+                return None
+
+        except Exception as e:
+            logger.error('Error processing search ranges: %s', e)
+            return None
+
+    def _set_rtt_search_ranges_from_device(self):
+        """Auto-generates and sets RTT search ranges from device RAM information.
+
+        Returns:
+          str: Description of the search range used (for logging), or None if failed.
+        """
+        if not hasattr(self, '_device') or not self._device:
+            return None
+
+        if not hasattr(self._device, 'RAMAddr'):
+            return None
+
+        ram_start = self._device.RAMAddr
+        ram_size = self._device.RAMSize if hasattr(self._device, 'RAMSize') else None
+
+        try:
+            ram_start = int(ram_start) & 0xFFFFFFFF
+
+            if ram_size:
+                ram_size = int(ram_size) & 0xFFFFFFFF
+                range_desc = '0x%X - 0x%X (auto, size: 0x%X)' % (
+                    ram_start, (ram_start + ram_size - 1) & 0xFFFFFFFF, ram_size
+                )
+                logger.debug('Auto-generated search range from device RAM: %s', range_desc)
+
+                cmd = 'SetRTTSearchRanges %X %X' % (ram_start, ram_size)
+                try:
+                    result = self.exec_command(cmd)
+                    if result != 0:
+                        logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                    time.sleep(0.1)
+                    return range_desc
+                except errors.JLinkException as e:
+                    logger.warning('Failed to set auto-generated search ranges: %s', e)
+                    return None
+                except Exception as e:
+                    logger.warning('Unexpected error setting auto-generated ranges: %s', e)
+                    return None
+            else:
+                # Try device preset if RAM size not available
+                if hasattr(self, '_device') and self._device:
+                    device_name = getattr(self._device, 'name', None)
+                    preset_range = self._get_device_preset(device_name)
+                    if preset_range:
+                        start, end = preset_range
+                        try:
+                            start, size = self._validate_and_normalize_search_range(start, end)
+                            range_desc = '0x%X - 0x%X (preset, size: 0x%X)' % (
+                                start, (start + size - 1) & 0xFFFFFFFF, size
+                            )
+                            logger.debug('Using device preset search range: %s', range_desc)
+                            cmd = 'SetRTTSearchRanges %X %X' % (start, size)
+                            try:
+                                result = self.exec_command(cmd)
+                                if result != 0:
+                                    logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                                time.sleep(0.1)
+                                return range_desc
+                            except errors.JLinkException as e:
+                                logger.warning('Failed to set preset search ranges: %s', e)
+                                return None
+                            except Exception as e:
+                                logger.warning('Unexpected error setting preset ranges: %s', e)
+                                return None
+                        except ValueError as e:
+                            logger.warning('Invalid preset range: %s', e)
+
+                # Fallback: use common 64KB range
+                fallback_size = self.DEFAULT_FALLBACK_SIZE
+                range_desc = '0x%X - 0x%X (fallback, size: 0x%X)' % (
+                    ram_start, (ram_start + fallback_size - 1) & 0xFFFFFFFF, fallback_size
+                )
+                logger.debug('Using fallback search range: %s', range_desc)
+
+                cmd = 'SetRTTSearchRanges %X %X' % (ram_start, fallback_size)
+                try:
+                    result = self.exec_command(cmd)
+                    if result != 0:
+                        logger.warning('SetRTTSearchRanges returned non-zero: %d', result)
+                    time.sleep(0.1)
+                    return range_desc
+                except errors.JLinkException as e:
+                    logger.warning('Failed to set fallback search ranges: %s', e)
+                    return None
+                except Exception as e:
+                    logger.warning('Unexpected error setting fallback ranges: %s', e)
+                    return None
+
+        except Exception as e:
+            logger.warning('Error generating search ranges from RAM info: %s', e)
+            return None
+
+    # CHANGED: Removed _validate_rtt_start_params() method - no longer needed after removing polling parameters
+
     @open_required
-    def rtt_start(self, block_address=None):
-        """Starts RTT processing, including background read of target data.
+    def rtt_start(
+        self,
+        block_address=None,
+        search_ranges=None,
+        allow_resume=True,
+        force_resume=False
+    ):
+        """Starts RTT processing.
+
+        This is a low-level method that starts RTT. It performs minimal setup:
+        stops any existing RTT session, ensures device is running, configures
+        search ranges if provided, and starts RTT. It does NOT poll for RTT
+        readiness or auto-detect search ranges.
+
+        For convenience features like automatic polling, search range auto-detection,
+        and automatic reconnection, see the `pylink.rtt` module.
+
+        Behavior:
+          - Stops any existing RTT session (multiple stops ensure clean state)
+          - Re-confirms device name (required for RTT auto-detection per SEGGER KB)
+          - Resumes device if halted (unless allow_resume=False)
+          - Configures search ranges if explicitly provided
+          - Starts RTT with specified block_address or auto-detection
 
         Args:
           self (JLink): the ``JLink`` instance
-          block_address (int): optional configuration address for the RTT block
+          block_address (int, optional): Explicit RTT control block address.
+            If provided, uses this address directly instead of searching.
+            Address can be found in:
+            - Linker map file (.map) - look for SEGGER_RTT symbol
+            - Via rtt_get_block_address() method
+            - From firmware debug symbols
+            Must be non-zero if provided. Mutually exclusive with search_ranges
+            (if both provided, block_address takes precedence).
+          search_ranges (List[Tuple[int, int]], optional): List of (start, end)
+            address ranges to search for RTT control block. Uses SetRTTSearchRanges
+            command. Format: [(start_addr, end_addr), ...]
+            Example: [(0x20000000, 0x2003FFFF)] for nRF54L15 RAM range.
+            Multiple ranges supported: [(start1, end1), (start2, end2), ...]
+            Only configured if explicitly provided. Ranges are validated:
+            - start <= end
+            - size > 0
+            - size <= 16MB (SEGGER limit)
+            If not provided, J-Link uses default auto-detection (may fail on
+            some devices like nRF54L15).
+          allow_resume (bool, optional): If True, resume device if halted.
+            RTT requires the CPU to be running. Default: True.
+            Set to False if you want to keep device halted (e.g., for debugging).
+          force_resume (bool, optional): If True, resume device even if state
+            is ambiguous (is_halted() returns -1). Default: False.
+            Use when device state cannot be determined reliably.
 
         Returns:
-          ``None``
+          None: Method returns immediately after starting RTT. Does NOT wait for
+            RTT to be ready. Use rtt_is_active() or polling in convenience module
+            to check if RTT is ready.
 
         Raises:
           JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
+            Common causes:
+            - Device not connected
+            - Invalid block_address
+            - RTT control block not found (when using auto-detection)
+          ValueError: if search_ranges are invalid (empty, start > end, size > 16MB)
+            or block_address is 0.
+
+        Note:
+          This method does NOT poll for RTT readiness. After calling rtt_start(),
+          you may need to wait and check rtt_is_active() or use the convenience
+          module's polling functions.
+
+          For devices where auto-detection fails (e.g., nRF54L15), always provide
+          search_ranges or block_address explicitly.
+
+          SetRTTSearchRanges must be called BEFORE rtt_control(START), which this
+          method handles automatically.
+
+        Examples:
+          Start RTT with explicit search range (recommended for nRF54L15)::
+
+            >>> jlink.rtt_start(search_ranges=[(0x20000000, 0x2003FFFF)])
+
+          Start RTT with explicit control block address::
+
+            >>> addr = jlink.rtt_get_block_address()
+            >>> if addr:
+            ...     jlink.rtt_start(block_address=addr)
+
+          Start RTT without modifying device state::
+
+            >>> jlink.rtt_start(allow_resume=False)
+
+          Multiple search ranges (for devices with multiple RAM regions)::
+
+            >>> jlink.rtt_start(search_ranges=[
+            ...     (0x20000000, 0x2003FFFF),  # Main RAM
+            ...     (0x10000000, 0x1000FFFF)   # Secondary RAM
+            ... ])
+
+          Use convenience module for polling::
+
+            >>> from pylink.rtt import start_rtt_with_polling
+            >>> start_rtt_with_polling(jlink, search_ranges=[(0x20000000, 0x2003FFFF)])
+
+        Related:
+          - rtt_stop(): Stop RTT
+          - rtt_is_active(): Check if RTT is ready
+          - rtt_get_block_address(): Find control block address
+          - pylink.rtt module: Convenience functions with polling and auto-detection
+          - Issue #249: RTT auto-detection fails
+          - Issue #233: RTT doesn't connect
+          - Issue #209: Option to set RTT Search Range
+          - Issue #51: Initialize RTT with address
         """
+        # CHANGED: Added block_address parameter support (Issue #51)
+        # Validate block_address if provided
+        if block_address is not None:
+            block_address = int(block_address) & 0xFFFFFFFF
+            if block_address == 0:
+                raise ValueError('block_address cannot be 0')
+
+        # CHANGED: Stop RTT if it's already running (to ensure clean state)
+        # Multiple stops ensure RTT is fully stopped and ranges are cleared
+        # NOTE: These delays are for hardware synchronization, NOT polling for RTT readiness
+        # The maintainer's feedback was about polling for RTT buffers to appear, not hardware sync delays
+        logger.debug('Stopping any existing RTT session...')
+        for i in range(3):
+            try:
+                self.rtt_stop()
+                time.sleep(0.1)  # Hardware sync: wait for RTT stop command to complete
+            except Exception as e:
+                if i == 0:  # Log only first attempt
+                    logger.debug('RTT stop attempt %d failed (may not be running): %s', i + 1, e)
+        time.sleep(0.3)  # Hardware sync: wait for RTT to fully stop before proceeding
+
+        # CHANGED: Ensure device is properly configured for RTT auto-detection
+        # According to SEGGER KB, Device name must be set correctly before RTT start
+        # This re-confirmation ensures RTT auto-detection works reliably
+        if hasattr(self, '_device') and self._device:
+            try:
+                device_name = self._device.name
+                logger.debug('Re-confirming device name: %s', device_name)
+                # Device name comes from J-Link API, not user input, so safe to use directly
+                self.exec_command('Device = %s' % device_name)
+                time.sleep(0.1)  # Hardware sync: wait for device name command to complete
+            except Exception as e:
+                logger.warning('Failed to re-confirm device name: %s', e)
+
+        # CHANGED: Ensure device is running (RTT requires running CPU)
+        # NOTE: These delays are for hardware synchronization (device resume), NOT polling for RTT readiness
+        if allow_resume:
+            try:
+                is_halted = self._dll.JLINKARM_IsHalted()
+                if is_halted == 1:  # Device is definitely halted
+                    logger.debug('Device is halted, resuming...')
+                    self._dll.JLINKARM_Go()
+                    time.sleep(0.3)  # Hardware sync: wait for device to resume
+                elif force_resume and is_halted == -1:  # Ambiguous state
+                    logger.debug('Device state ambiguous, forcing resume...')
+                    self._dll.JLINKARM_Go()
+                    time.sleep(0.3)  # Hardware sync: wait for device to resume
+                elif is_halted == 0:
+                    logger.debug('Device is running')
+                # is_halted == -1 and not force_resume: ambiguous, assume running
+            except Exception as e:
+                logger.warning('Failed to check/resume device state: %s', e)
+                if force_resume:
+                    raise errors.JLinkException('Device state check failed: %s' % e)
+                # Otherwise, assume device is running
+
+        # CHANGED: Only configure search_ranges if explicitly provided (Issue #209)
+        # Removed auto-generation of search ranges - caller must provide explicitly
+        # IMPORTANT: SetRTTSearchRanges must be called BEFORE rtt_control(START)
+        if search_ranges is not None:
+            # Validate that search_ranges is not empty
+            if len(search_ranges) == 0:
+                raise ValueError('search_ranges cannot be empty')
+            # Pre-validate all ranges before setting (raises ValueError if any are invalid)
+            for i, (start, end) in enumerate(search_ranges):
+                try:
+                    self._validate_and_normalize_search_range(start, end)
+                except ValueError as e:
+                    raise ValueError('Invalid search range %d: %s' % (i, e))
+            # Validate and set search ranges (will raise ValueError if invalid)
+            self._set_rtt_search_ranges(search_ranges)
+            logger.debug('Configured search ranges: %s', search_ranges)
+
+        # CHANGED: Removed all polling logic - method returns immediately after starting RTT
+        # Caller must implement polling if needed (see pylink.rtt convenience module)
+        # Start RTT
         config = None
         if block_address is not None:
+            # CHANGED: Added explicit block_address support (Issue #51)
             config = structs.JLinkRTTerminalStart()
             config.ConfigBlockAddress = block_address
+            logger.debug('Starting RTT with specific control block address: 0x%X', block_address)
+        else:
+            logger.debug('Starting RTT with auto-detection...')
+
         self.rtt_control(enums.JLinkRTTCommand.START, config)
+        logger.debug('RTT start command executed')
+        # CHANGED: No polling here - method returns immediately
 
     @open_required
     def rtt_stop(self):
@@ -5310,6 +6116,150 @@ class JLink(object):
           JLinkRTTException: if the underlying JLINK_RTTERMINAL_Control call fails.
         """
         self.rtt_control(enums.JLinkRTTCommand.STOP, None)
+
+    # CHANGED: Added new method to search for RTT control block address (Issue #209)
+    @open_required
+    def rtt_get_block_address(self, search_ranges=None):
+        """Search for RTT control block address in memory.
+
+        Searches for the SEGGER_RTT magic string ("SEGGER RTT") in the specified
+        memory ranges. This is useful when you need to know the exact address
+        before calling rtt_start(), or when debugging RTT connection issues.
+
+        The method searches for the 10-byte magic string "SEGGER RTT" which marks
+        the beginning of the RTT control block structure in target RAM. The search
+        is performed in 256-byte chunks with overlap to catch strings at chunk
+        boundaries.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          search_ranges (list, optional): List of (start, end) address tuples
+            to search. If None, uses device RAM info to generate search ranges
+            automatically. Format: [(start_addr, end_addr), ...]
+            Multiple ranges supported: [(start1, end1), (start2, end2), ...]
+            Each range should cover valid RAM addresses where RTT control block
+            might be located. For nRF54L15, typical RAM range is:
+            [(0x20000000, 0x2003FFFF)]
+
+        Returns:
+          int: Address of RTT control block if found, None otherwise.
+            Returns None if:
+            - Control block not found in any search range
+            - Device RAM info not available (when search_ranges is None)
+            - Memory read errors occur (logged but not raised)
+
+        Raises:
+          ValueError: If search_ranges is empty or contains invalid ranges
+            (start > end).
+
+        Note:
+          This method reads memory from the target device. Ensure the device is
+          connected and running. The search may take some time for large ranges.
+          Enable DEBUG logging to see search progress.
+
+        Example:
+          Find control block address with explicit range::
+
+            >>> addr = jlink.rtt_get_block_address([(0x20000000, 0x2003FFFF)])
+            >>> if addr:
+            ...     print(f"RTT control block at 0x{addr:X}")
+            ...     jlink.rtt_start(block_address=addr)
+
+          Auto-detect using device RAM info::
+
+            >>> addr = jlink.rtt_get_block_address()
+            >>> if addr:
+            ...     jlink.rtt_start(block_address=addr)
+
+          Multiple search ranges (e.g., for devices with multiple RAM regions)::
+
+            >>> addr = jlink.rtt_get_block_address([
+            ...     (0x20000000, 0x2003FFFF),  # Main RAM
+            ...     (0x10000000, 0x1000FFFF)   # Secondary RAM
+            ... ])
+
+        Related:
+          - rtt_start(): Start RTT using the found address
+          - Issue #209: Option to set RTT Search Range
+        """
+        # CHANGED: New method implementation (Issue #209)
+        # RTT magic string: "SEGGER RTT" (10 bytes)
+        magic_string = b"SEGGER RTT"
+        magic_len = len(magic_string)
+
+        # Auto-generate search ranges from device RAM if not provided
+        if search_ranges is None:
+            # Auto-generate from device RAM info
+            if hasattr(self, '_device') and self._device:
+                ram_start = getattr(self._device, 'RAMAddr', None)
+                ram_size = getattr(self._device, 'RAMSize', None)
+                if ram_start is not None:
+                    ram_start = int(ram_start) & 0xFFFFFFFF
+                    if ram_size is not None:
+                        ram_size = int(ram_size) & 0xFFFFFFFF
+                        search_ranges = [(ram_start, ram_start + ram_size - 1)]
+                    else:
+                        # Use fallback size if RAM size not available
+                        fallback_size = self.DEFAULT_FALLBACK_SIZE
+                        search_ranges = [(ram_start, ram_start + fallback_size - 1)]
+                else:
+                    logger.warning("Could not get RAM address from device info")
+                    return None
+            else:
+                logger.warning("Device info not available for auto-generating search ranges")
+                return None
+
+        # Validate search ranges
+        if not search_ranges or len(search_ranges) == 0:
+            raise ValueError("search_ranges cannot be empty")
+
+        # Search each range for magic string
+        for start_addr, end_addr in search_ranges:
+            if start_addr > end_addr:
+                continue
+
+            # Search in 4-byte aligned chunks (RTT control block is typically aligned)
+            search_start = start_addr & ~0x3  # Align to 4 bytes
+            search_end = end_addr - magic_len + 1
+
+            logger.debug("Searching for RTT control block in range 0x%X - 0x%X", search_start, search_end)
+
+            # Read memory in chunks to avoid reading too much at once
+            chunk_size = 256  # Read 256 bytes at a time
+            current_addr = search_start
+
+            while current_addr <= search_end:
+                # Calculate how much to read
+                read_size = min(chunk_size, search_end - current_addr + 1)
+                if read_size < magic_len:
+                    break
+
+                try:
+                    # Read memory
+                    data = self.memory_read8(current_addr, read_size)
+                    if not data:
+                        current_addr += chunk_size
+                        continue
+
+                    # Search for magic string in this chunk
+                    data_bytes = bytes(data)
+                    idx = data_bytes.find(magic_string)
+                    if idx != -1:
+                        found_addr = current_addr + idx
+                        logger.info("Found RTT control block at address 0x%X", found_addr)
+                        return found_addr
+
+                    # Move to next chunk (overlap by magic_len-1 to catch strings at boundaries)
+                    current_addr += chunk_size - (magic_len - 1)
+
+                except Exception as e:
+                    logger.debug("Error reading memory at 0x%X: %s", current_addr, e)
+                    # Skip this chunk and continue
+                    current_addr += chunk_size
+                    continue
+
+        logger.debug("RTT control block not found in specified search ranges")
+        return None
 
     @open_required
     def rtt_get_buf_descriptor(self, buffer_index, up):
@@ -5394,20 +6344,81 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          buffer_index (int): the index of the RTT buffer to read from
-          num_bytes (int): the maximum number of bytes to read
+          buffer_index (int): the index of the RTT buffer to read from.
+            Must be a valid up buffer index (0 to num_up_buffers - 1).
+            Use rtt_get_num_up_buffers() to get the number of available buffers.
+          num_bytes (int): the maximum number of bytes to read.
+            Must be positive. Actual bytes read may be less if buffer
+            contains fewer bytes.
 
         Returns:
-          A list of bytes read from RTT.
+          list: A list of bytes read from RTT. Empty list if no data available.
 
         Raises:
           JLinkRTTException: if the underlying JLINK_RTTERMINAL_Read call fails.
+            Error code -11 indicates device state issues and includes detailed
+            diagnostic information about possible causes:
+            - Device disconnected or reset
+            - GDB server attached (conflicts with RTT)
+            - Device in bad state
+            - RTT control block corrupted or invalid
+            If check_connection_health() is available, connection health is
+            checked and included in the error message.
+
+        Note:
+          Error code -11 typically occurs when:
+          1. Device has been reset or disconnected
+          2. GDB debugger is attached (GDB and RTT conflict)
+          3. Device is in an invalid state
+          4. RTT control block has been corrupted
+
+          Enable DEBUG logging for more diagnostic information. If error -11
+          persists, try:
+          - Stopping and restarting RTT (rtt_stop() then rtt_start())
+          - Checking device connection (check_connection_health() if available)
+          - Ensuring no debugger is attached
+
+        Example:
+          Read up to 1024 bytes from buffer 0::
+
+            >>> data = jlink.rtt_read(0, 1024)
+            >>> if data:
+            ...     print(f"Read {len(data)} bytes: {bytes(data)}")
+
+        Related:
+          - rtt_write(): Write data to RTT down buffers
+          - rtt_get_num_up_buffers(): Get number of available up buffers
+          - Issue #160: Error code -11 handling improvements
         """
         buf = (ctypes.c_ubyte * num_bytes)()
         bytes_read = self._dll.JLINK_RTTERMINAL_Read(buffer_index, buf, num_bytes)
 
         if bytes_read < 0:
-            raise errors.JLinkRTTException(bytes_read)
+            # CHANGED: Improved error code -11 handling with detailed diagnostics (Issue #160)
+            # Error code -11 typically indicates device state issues
+            if bytes_read == -11:
+                # CHANGED: Added detailed error message with possible causes (Issue #160)
+                error_msg = (
+                    "RTT read failed (error -11). Possible causes:\n"
+                    "  1. Device disconnected or reset\n"
+                    "  2. GDB server attached (conflicts with RTT)\n"
+                    "  3. Device in bad state\n"
+                    "  4. RTT control block corrupted or invalid\n"
+                    "Enable DEBUG logging for more details."
+                )
+                # CHANGED: Check connection health if available (Issue #252 integration)
+                try:
+                    if hasattr(self, 'check_connection_health'):
+                        if not self.check_connection_health():
+                            error_msg += "\nConnection health check failed - device may be disconnected."
+                except Exception:
+                    pass  # Ignore errors in diagnostic check
+                # Create exception with error message (JLinkException accepts code or message string)
+                exc = errors.JLinkRTTException(bytes_read)
+                exc.message = error_msg  # Override message with detailed diagnostics
+                raise exc
+            else:
+                raise errors.JLinkRTTException(bytes_read)
 
         return list(buf[:bytes_read])
 
@@ -5416,19 +6427,100 @@ class JLink(object):
         """Writes data to the RTT buffer.
 
         This method will write at most len(data) bytes to the specified RTT
-        buffer.
+        down buffer. The data is queued in the buffer and will be read by
+        the target firmware when it calls SEGGER_RTT_Read().
+
+        Before writing, this method validates:
+        1. RTT is active (rtt_start() has been called)
+        2. Down buffers are configured in firmware
+        3. buffer_index is within valid range
 
         Args:
           self (JLink): the ``JLink`` instance
-          buffer_index (int): the index of the RTT buffer to write to
-          data (list): the list of bytes to write to the RTT buffer
+          buffer_index (int): the index of the RTT buffer to write to.
+            Must be a valid down buffer index (0 to num_down_buffers - 1).
+            Use rtt_get_num_down_buffers() to get the number of available buffers.
+          data (list): the list of bytes to write to the RTT buffer.
+            Can be empty list (no-op, returns 0). Maximum write size depends
+            on buffer capacity configured in firmware.
 
         Returns:
-          The number of bytes successfully written to the RTT buffer.
+          int: The number of bytes successfully written to the RTT buffer.
+            Returns 0 if:
+            - data is empty
+            - Buffer is full (no space available)
+            - Write fails (check exception for details)
 
         Raises:
-          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Write call fails.
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Write call fails,
+            or if validation fails. Specific error messages:
+            - "RTT is not active. Call rtt_start() first." - RTT not started
+            - "No down buffers configured. rtt_write() requires down buffers to be
+              configured in firmware. Check your firmware's RTT configuration
+              (SEGGER_RTT_ConfigDownBuffer)." - Firmware doesn't have down buffers
+            - "Buffer index X out of range. Only Y down buffer(s) available
+              (indices 0-Y)." - Invalid buffer index
+
+        Note:
+          Down buffers must be configured in firmware using SEGGER_RTT_ConfigDownBuffer().
+          If firmware only configures up buffers (for output), rtt_write() will fail
+          with a clear error message.
+
+          If rtt_write() returns 0 without raising an exception, the buffer may be full.
+          The target firmware should read from the buffer to make space.
+
+        Example:
+          Write string to buffer 0::
+
+            >>> jlink.rtt_start()
+            >>> data = list(b"Hello from host!")
+            >>> bytes_written = jlink.rtt_write(0, data)
+            >>> print(f"Wrote {bytes_written} bytes")
+
+          Check if down buffers are available::
+
+            >>> num_down = jlink.rtt_get_num_down_buffers()
+            >>> if num_down > 0:
+            ...     jlink.rtt_write(0, list(b"Command"))
+            ... else:
+            ...     print("No down buffers configured in firmware")
+
+        Related:
+          - rtt_read(): Read data from RTT up buffers
+          - rtt_get_num_down_buffers(): Get number of available down buffers
+          - rtt_start(): Start RTT before writing
+          - Issue #234: rtt_write() returns 0 - improved error messages
         """
+        # CHANGED: Added validation before writing (Issue #234)
+        # Check if RTT is active
+        if not self.rtt_is_active():
+            raise errors.JLinkRTTException(
+                "RTT is not active. Call rtt_start() first."
+            )
+
+        # CHANGED: Validate down buffers exist and buffer_index is valid (Issue #234)
+        # This provides clearer error messages when firmware doesn't configure down buffers
+        try:
+            num_down = self.rtt_get_num_down_buffers()
+            if num_down == 0:
+                raise errors.JLinkRTTException(
+                    "No down buffers configured. rtt_write() requires down buffers "
+                    "to be configured in firmware. Check your firmware's RTT "
+                    "configuration (SEGGER_RTT_ConfigDownBuffer)."
+                )
+            if buffer_index < 0:
+                raise ValueError("Buffer index cannot be negative: %d" % buffer_index)
+            if buffer_index >= num_down:
+                raise errors.JLinkRTTException(
+                    "Buffer index %d out of range. Only %d down buffer(s) available "
+                    "(indices 0-%d)." % (buffer_index, num_down, num_down - 1)
+                )
+        except errors.JLinkRTTException:
+            raise
+        except Exception:
+            # If check fails, continue anyway (backward compatibility)
+            pass
+
         buf_size = len(data)
         buf = (ctypes.c_ubyte * buf_size)(*bytearray(data))
         bytes_written = self._dll.JLINK_RTTERMINAL_Write(buffer_index, buf, buf_size)
@@ -5464,11 +6556,227 @@ class JLink(object):
 
         return res
 
-###############################################################################
-#
-# System control Co-Processor (CP15) API
-#
-###############################################################################
+    @open_required
+    def rtt_is_active(self):
+        """Checks if RTT is currently active and ready to use.
+
+        This method attempts to get the number of up buffers. If successful,
+        RTT is considered active. This is a non-destructive check that does
+        not modify RTT state.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          bool: ``True`` if RTT is active and ready, ``False`` otherwise.
+        """
+        try:
+            num_buffers = self.rtt_get_num_up_buffers()
+            return num_buffers > 0
+        except errors.JLinkRTTException:
+            return False
+        except Exception:
+            return False
+
+    @open_required
+    def rtt_get_info(self):
+        """Gets comprehensive information about the current RTT state.
+
+        This method collects information about RTT buffers, status, and
+        configuration. Useful for debugging and monitoring RTT state.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+
+        Returns:
+          dict: Dictionary containing RTT information with keys:
+            - 'active' (bool): Whether RTT is active
+            - 'num_up_buffers' (int): Number of up buffers (or None if error)
+            - 'num_down_buffers' (int): Number of down buffers (or None if error)
+            - 'status' (dict or None): RTT status structure (or None if error)
+            - 'error' (str or None): Error message if any operation failed
+
+        Note:
+          This method catches exceptions internally and returns error information
+          in the result dictionary rather than raising exceptions.
+        """
+        info = {
+            'active': False,
+            'num_up_buffers': None,
+            'num_down_buffers': None,
+            'status': None,
+            'error': None
+        }
+
+        try:
+            # Check if RTT is active
+            info['active'] = self.rtt_is_active()
+
+            if info['active']:
+                # Get buffer counts
+                try:
+                    info['num_up_buffers'] = self.rtt_get_num_up_buffers()
+                except Exception as e:
+                    info['error'] = 'Failed to get up buffers: %s' % e
+
+                try:
+                    info['num_down_buffers'] = self.rtt_get_num_down_buffers()
+                except Exception as e:
+                    if info['error']:
+                        info['error'] += '; Failed to get down buffers: %s' % e
+                    else:
+                        info['error'] = 'Failed to get down buffers: %s' % e
+
+                # Get status
+                try:
+                    status = self.rtt_get_status()
+                    # Convert status struct to dict for easier access
+                    info['status'] = {
+                        'ac_block_size': getattr(status, 'acBlockSize', None),
+                        'max_up_buffers': getattr(status, 'maxUpBuffers', None),
+                        'max_down_buffers': getattr(status, 'maxDownBuffers', None),
+                    }
+                except Exception as e:
+                    if info['error']:
+                        info['error'] += '; Failed to get status: %s' % e
+                    else:
+                        info['error'] = 'Failed to get status: %s' % e
+        except Exception as e:
+            info['error'] = 'Failed to check RTT state: %s' % e
+
+        return info
+
+    @open_required
+    def rtt_read_all(self, buffer_index=0, max_bytes=4096):
+        """Reads all available data from an RTT buffer.
+
+        This is a convenience method that reads all available data from the
+        specified buffer up to max_bytes. Useful for reading complete messages
+        without knowing the exact size beforehand.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int, optional): Index of the RTT buffer to read from.
+            Default: 0
+          max_bytes (int, optional): Maximum number of bytes to read in one call.
+            Default: 4096
+
+        Returns:
+          list: List of bytes read from RTT buffer. Empty list if no data available.
+
+        Raises:
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Read call fails.
+        """
+        try:
+            return self.rtt_read(buffer_index, max_bytes)
+        except errors.JLinkRTTException as e:
+            # If error is "no data available", return empty list
+            # Otherwise re-raise
+            if hasattr(e, 'error_code') and e.error_code == enums.JLinkRTTErrors.RTT_ERROR_BUFFER_NOT_FOUND:
+                return []
+            raise
+
+    @open_required
+    def rtt_write_string(self, buffer_index, text, encoding='utf-8'):
+        """Writes a string to an RTT buffer.
+
+        This is a convenience method that converts a string to bytes and writes
+        it to the specified RTT buffer.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          buffer_index (int): Index of the RTT buffer to write to
+          text (str): String to write to RTT buffer
+          encoding (str, optional): Encoding to use for string conversion.
+            Default: 'utf-8'
+
+        Returns:
+          int: Number of bytes successfully written to the RTT buffer.
+
+        Raises:
+          JLinkRTTException: if the underlying JLINK_RTTERMINAL_Write call fails.
+          UnicodeEncodeError: if the string cannot be encoded with the specified encoding.
+        """
+        if isinstance(text, bytes):
+            data = list(text)
+        else:
+            data = list(text.encode(encoding))
+        return self.rtt_write(buffer_index, data)
+
+    class RTTContext(object):
+        """Context manager for RTT operations.
+
+        This context manager automatically starts RTT when entering the context
+        and stops RTT when exiting, even if an exception occurs.
+
+        Example:
+          >>> with jlink.rtt_context():
+          ...     data = jlink.rtt_read(0, 1024)
+          # RTT automatically stopped here
+        """
+
+        def __init__(self, jlink_instance, **rtt_start_kwargs):
+            """Initializes the RTT context manager.
+
+            Args:
+              jlink_instance (JLink): The JLink instance to use
+              **rtt_start_kwargs: Arguments to pass to rtt_start()
+            """
+            self.jlink = jlink_instance
+            self.rtt_start_kwargs = rtt_start_kwargs
+            self.rtt_started = False
+
+        def __enter__(self):
+            """Starts RTT when entering the context.
+
+            Returns:
+              JLink: The JLink instance for convenience.
+            """
+            success = self.jlink.rtt_start(**self.rtt_start_kwargs)
+            self.rtt_started = success
+            if not success:
+                logger.warning('RTT context: rtt_start() returned False, RTT may not be active')
+            return self.jlink
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            """Stops RTT when exiting the context.
+
+            Args:
+              exc_type: Exception type (if exception occurred)
+              exc_val: Exception value (if exception occurred)
+              exc_tb: Exception traceback (if exception occurred)
+
+            Returns:
+              False: Always returns False to allow exceptions to propagate.
+            """
+            if self.rtt_started:
+                try:
+                    self.jlink.rtt_stop()
+                except Exception as e:
+                    logger.warning('RTT context: Failed to stop RTT: %s', e)
+            return False  # Don't suppress exceptions
+
+    def rtt_context(self, **kwargs):
+        """Creates a context manager for RTT operations.
+
+        This method returns a context manager that automatically starts RTT
+        when entering and stops RTT when exiting. All arguments are passed
+        directly to rtt_start().
+
+        Args:
+          **kwargs: Arguments to pass to rtt_start()
+
+        Returns:
+          RTTContext: Context manager instance.
+
+        Example:
+          >>> with jlink.rtt_context():
+          ...     data = jlink.rtt_read(0, 1024)
+
+          >>> with jlink.rtt_context(search_ranges=[(0x20000000, 0x2003FFFF)]):
+          ...     data = jlink.rtt_read(0, 1024)
+        """
+        return self.RTTContext(self, **kwargs)
 
     @connection_required
     def cp15_present(self):

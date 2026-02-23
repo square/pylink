@@ -33,6 +33,7 @@ Getting started is as simple as:
    Unlockers <pylink.unlockers.rst>
    Bindings <pylink.bindings.rst>
    Extras <pylink.extras.rst>
+   RTT Convenience Module <pylink.rtt.rst>
    Troubleshooting <troubleshooting.rst>
 
 .. toctree::

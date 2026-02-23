@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pylink.enums as enums
+from pylink import errors
 from pylink.errors import JLinkException, JLinkDataException
 import pylink.jlink as jlink
 import pylink.protocols.swd as swd
@@ -5913,7 +5914,13 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
+        # Mock required methods for rtt_start()
+        self.dll.JLINKARM_IsHalted.return_value = 0  # Device running
+        self.dll.JLINKARM_Go.return_value = 0
+        self.dll.JLINKARM_ExecCommand.return_value = 0
         self.dll.JLINK_RTTERMINAL_Control.return_value = 0
+        self.jlink._device = mock.Mock()
+        self.jlink._device.name = 'TestDevice'
 
         self.jlink.rtt_start()
 
@@ -5921,7 +5928,7 @@ class TestJLink(unittest.TestCase):
         self.assertEqual(enums.JLinkRTTCommand.START, actual_cmd)
         self.assertIsNone(config_ptr)
 
-        self.jlink.rtt_start(0xDEADBEEF)
+        self.jlink.rtt_start(block_address=0xDEADBEEF)
 
         actual_cmd, config_ptr = self.dll.JLINK_RTTERMINAL_Control.call_args[0]
         self.assertEqual(enums.JLinkRTTCommand.START, actual_cmd)
@@ -6184,7 +6191,19 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
-        expected = 89
+        expected = 0  # Use valid buffer index (0)
+        # Mock RTT as active and down buffers available
+        # Mock rtt_is_active (via rtt_get_num_up_buffers) and rtt_get_num_down_buffers
+        def mock_control(cmd, *args):
+            if cmd == enums.JLinkRTTCommand.GETNUMBUF:
+                # Check direction to return appropriate buffer count
+                if len(args) > 0 and hasattr(args[0], '_obj'):
+                    # Down buffer query
+                    return 1  # Return 1 down buffer (indices 0-0)
+                # Up buffer query (for rtt_is_active)
+                return 1  # Return 1 up buffer to indicate RTT is active
+            return 0
+        self.dll.JLINK_RTTERMINAL_Control.side_effect = mock_control
         self.dll.JLINK_RTTERMINAL_Write.return_value = 0
         self.jlink.rtt_write(expected, [])
         self.assertEqual(self.dll.JLINK_RTTERMINAL_Write.call_args[0][0], expected)
@@ -6199,6 +6218,12 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         expected = b'\x00\x01\x02\x03'
+        # Mock RTT as active and down buffers available
+        def mock_control(cmd, *args):
+            if cmd == enums.JLinkRTTCommand.GETNUMBUF:
+                return 1  # Return number of down buffers
+            return 0
+        self.dll.JLINK_RTTERMINAL_Control.side_effect = mock_control
         self.dll.JLINK_RTTERMINAL_Write.return_value = 0
         self.jlink.rtt_write(0, expected)
         actual = bytearray(self.dll.JLINK_RTTERMINAL_Write.call_args[0][1])
@@ -6214,6 +6239,12 @@ class TestJLink(unittest.TestCase):
           ``None``
         """
         expected = 1234
+        # Mock RTT as active and down buffers available
+        def mock_control(cmd, *args):
+            if cmd == enums.JLinkRTTCommand.GETNUMBUF:
+                return 1  # Return number of down buffers
+            return 0
+        self.dll.JLINK_RTTERMINAL_Control.side_effect = mock_control
         self.dll.JLINK_RTTERMINAL_Write.return_value = expected
         actual = self.jlink.rtt_write(0, b'')
         self.assertEqual(actual, expected)
@@ -6227,9 +6258,16 @@ class TestJLink(unittest.TestCase):
         Returns:
           ``None``
         """
+        # Mock RTT as active and down buffers available
+        def mock_control(cmd, *args):
+            if cmd == enums.JLinkRTTCommand.GETNUMBUF:
+                return 1  # Return 1 down buffer
+            return 0
+        self.dll.JLINK_RTTERMINAL_Control.side_effect = mock_control
         self.dll.JLINK_RTTERMINAL_Write.return_value = -1
         with self.assertRaises(JLinkException):
             self.jlink.rtt_write(0, [])
+
 
     def test_cp15_present_returns_true(self):
         """Tests that cp15_present returns ``True`` when CP15_IsPresent
