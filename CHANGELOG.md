@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.0.1]
+
+### Fixed
+- @diggit: Fixed typo in exception name raised when `JLINKARM_SelectUSB` fails.
+- @lweyrich1: Fixed Windows init test to be independent of runner bitness.
+
 ## [2.0.0]
 ### Changed
 - Python 2 is no longer supported.
