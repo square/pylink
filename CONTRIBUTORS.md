@@ -32,3 +32,4 @@ In the order of appearance in the commit history:
 | Issam E. Maghni           | @concatime         |
 | Patrik Bachan             | @diggit            |
 | -                         | @lweyrich1         |
+| Michal Mlodecki           | @TheColector       |
