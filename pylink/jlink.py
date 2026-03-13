@@ -2269,11 +2269,11 @@ class JLink(object):
             pass
 
         # Program the target.
-        bytes_flashed = self._dll.JLINK_DownloadFile(os.fsencode(path), addr)
-        if bytes_flashed < 0:
-            raise errors.JLinkFlashException(bytes_flashed)
+        res = self._dll.JLINK_DownloadFile(os.fsencode(path), addr)
+        if res < 0:
+            raise errors.JLinkFlashException(res)
 
-        return bytes_flashed
+        return res
 
     @connection_required
     def reset(self, ms=0, halt=True):
