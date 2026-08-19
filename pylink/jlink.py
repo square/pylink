@@ -2360,6 +2360,9 @@ class JLink(object):
         Returns:
           ``True`` if halted, ``False`` otherwise.
         """
+        if self.jlink.halted():
+            return True
+
         res = int(self._dll.JLINKARM_Halt())
         if res == 0:
             time.sleep(1)
