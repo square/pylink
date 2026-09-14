@@ -2215,7 +2215,7 @@ class JLink(object):
             pass
 
         # Perform read-modify-write operation.
-        self._dll.JLINKARM_BeginDownload(flags=flags)
+        self._dll.JLINKARM_BeginDownload(flags)
 
         if isinstance(data, list):
             data = bytes(data)
