@@ -330,6 +330,12 @@ class JLinkFunctions(object):
                                                 ctypes.c_char_p,
                                                 ctypes.c_char_p,
                                                 ctypes.c_int)
+    UNLOCK_IDCODE_HOOK_PROTOTYPE = ctypes.CFUNCTYPE(ctypes.c_int,
+                                                    ctypes.c_char_p,
+                                                    ctypes.c_char_p,
+                                                    ctypes.c_uint32,
+                                                    ctypes.c_void_p,
+                                                    ctypes.c_int)
 
 
 class JLinkCore(object):
@@ -747,3 +753,45 @@ class JLinkPowerTraceRef(object):
     NONE = 0
     BYTES = 1
     TIME = 2
+
+
+class JLinkIndirectFunctionIndex(object):
+    """J-Link indirect function index."""
+    SET_HOOK_DIALOG_UNLOCK_IDCODE = 0
+    SPI_TRANSFER_MULTIPLE = 1
+    PIN_OVERRIDE = 2
+    PIN_OVERRIDE_GET_PIN_CAPS = 3
+    MRU_GETLIST = 4
+    RESERVED3 = 5
+    RESERVED4 = 6
+    RESERVED5 = 7
+    GET_SESSION_ID = 8
+    CORESIGHT_TRIGGER_READ_APDP_REG = 9
+    CAN_ACC_MEM_WHILE_RUNNING = 10
+    UPDATE_BTL = 11
+    GET_CURRENT_ENDIANESS = 12
+    ALGODB_GET_PALGO_INFO = 13
+    ALGODB_GET_PALGO_INFO_CFI = 14
+    ALGODB_GET_ALGO_NO = 15
+    PCODE_SET_ENTRY_FUNC = 16
+    PCODE_DOWNLOAD = 17
+    PCODE_EXEC_EX = 18
+    START_MERGE_COMMANDS = 19
+    END_MERGE_COMMANDS = 20
+    RAWTRACE_BIST_STARTSTOP = 21
+    RAWTRACE_BIST_READ_ERR_STATS = 22
+    GET_PF_GET_INST_INFO = 23
+    CORESIGHT_ACC_APDP_REG_MUL = 24
+    PCODE_DATA_DOWNLOAD = 25
+    PCODE_EXEC_EX2 = 25
+    PCODE_FREE = 26
+    EMU_COMMANDLINE_WRITE_READ = 27
+    GET_PF_DISASSEMBLE_BUFFER = 28
+    EMU_GET_TARGET_IMG_AREA_INFO = 29
+    EMU_READ_TARGET_IMG_AREA = 30
+    EMU_WRITE_TARGET_IMG_AREA = 31
+    EMU_GET_CURR_CONN_INFO = 31
+    GET_PF_EXP_DEVICE_LIST_XML = 32
+    SCRIPTFILE_EXEC_FUNC = 33
+    EMU_ADD_FW_IMAGES = 34
+    NUM_FUNC_INDEXES = 35
