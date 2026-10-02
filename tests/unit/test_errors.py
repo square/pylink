@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pylink.enums as enums
 import pylink.errors as errors
 
 import unittest
@@ -75,6 +76,21 @@ class TestErrors(unittest.TestCase):
         self.assertTrue(isinstance(exception.message, str))
         self.assertEqual('Unspecified error.', exception.message)
         self.assertEqual(code, getattr(exception, 'code', None))
+
+    def test_jlink_no_cpu_found_exception(self):
+        """Tests that `JLinkNoCPUFoundException` maps `NO_CPU_FOUND`.
+
+        Args:
+          self (TestErrors): the `TestErrors` instance
+
+        Returns:
+          `None`
+        """
+        code = enums.JLinkGlobalErrors.NO_CPU_FOUND
+        exception = errors.JLinkNoCPUFoundException(code)
+        self.assertTrue(isinstance(exception, errors.JLinkException))
+        self.assertEqual('Could not find supported CPU.', exception.message)
+        self.assertEqual(code, exception.code)
 
 
 if __name__ == '__main__':

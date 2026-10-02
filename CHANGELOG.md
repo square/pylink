@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [2.0.1]
 
+### Added
+- Added `JLinkNoCPUFoundException` for `NO_CPU_FOUND` so callers can catch
+  missing CPU without matching on the error message string. `connect()`
+  raises this when the DLL returns that code.
+
 ### Fixed
 - @diggit: Fixed typo in exception name raised when `JLINKARM_SelectUSB` fails.
 - @lweyrich1: Fixed Windows init test to be independent of runner bitness.

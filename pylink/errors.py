@@ -42,6 +42,15 @@ class JLinkException(enums.JLinkGlobalErrors, Exception):
         self.message = message
 
 
+class JLinkNoCPUFoundException(JLinkException):
+    """J-Link exception when no supported CPU is found.
+
+    Raised for ``JLinkGlobalErrors.NO_CPU_FOUND`` so callers can catch this
+    case by type instead of comparing against the error message string.
+    """
+    pass
+
+
 class JLinkEraseException(enums.JLinkEraseErrors, JLinkException):
     """J-Link erase exception."""
     pass

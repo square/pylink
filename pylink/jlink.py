@@ -1127,6 +1127,8 @@ class JLink(object):
 
         Raises:
           JLinkException: if connection fails to establish.
+          JLinkNoCPUFoundException: if the DLL reports that no supported CPU
+            was found (``NO_CPU_FOUND``).
           TypeError: if given speed is invalid
         """
 
@@ -1158,6 +1160,8 @@ class JLink(object):
         if not self.target_connected():
             result = self._dll.JLINKARM_Connect()
             if result < 0:
+                if result == enums.JLinkGlobalErrors.NO_CPU_FOUND:
+                    raise errors.JLinkNoCPUFoundException(result)
                 raise errors.JLinkException(result)
 
         try:
