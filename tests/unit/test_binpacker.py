@@ -66,6 +66,17 @@ class TestBinpacker(unittest.TestCase):
         self.assertEqual(4, binpacker.pack_size(2147483647))
         self.assertEqual(8, binpacker.pack_size(9223372036854775807))
 
+    def test_pack_size_at_byte_boundaries(self):
+        """Calculate exact sizes without floating-point rounding."""
+        for size in range(1, 33):
+            boundary = 1 << (8 * size)
+            self.assertEqual(size, binpacker.pack_size(boundary - 1))
+            self.assertEqual(size + 1, binpacker.pack_size(boundary))
+
+    def test_pack_maximum_unsigned_long_word(self):
+        """Do not append a spurious zero byte to a 64-bit value."""
+        self.assertEqual([255] * 8, list(binpacker.pack((1 << 64) - 1)))
+
     def test_pack_size_invalid(self):
         """Tests that the `pack_size()` method throws an exception.
 
