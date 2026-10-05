@@ -36,7 +36,7 @@ def pack_size(value):
         return 1
     elif value < 0:
         raise ValueError('Expected non-negative integer.')
-    return int(math.log(value, 256)) + 1
+    return (value.bit_length() + BITS_PER_BYTE - 1) // BITS_PER_BYTE
 
 
 def pack(value, nbits=None):
