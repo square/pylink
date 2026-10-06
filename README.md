@@ -1,6 +1,6 @@
 # pylink
 
-[![Build Status](https://travis-ci.org/square/pylink.svg?branch=master)](https://travis-ci.org/square/pylink)
+[![Build Status](https://github.com/square/pylink/actions/workflows/test.yml/badge.svg)](https://github.com/square/pylink/actions/workflows/test.yml)
 
 Python interface for the SEGGER J-Link.
 

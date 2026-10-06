@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [2.0.2]
+
+### Fixed
+- @TheColector: Fixed a bug in `flash_file` where return value was treated
+  as bytes flashed instead of status code.
+- @NickeZ: Fixed a bug in `flash()` where `flags` were passed as a positional
+  argument and ignored.
+- @Shubham-Padkonde: Fixed a bug in `binpacker.pack_size()` where packed
+  integer sizes at byte boundaries would result in extra padding bytes being
+  added during memory and flash writes.
+
 ## [2.0.1]
 
 ### Fixed

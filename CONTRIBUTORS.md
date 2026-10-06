@@ -33,3 +33,5 @@ In the order of appearance in the commit history:
 | Patrik Bachan             | @diggit            |
 | -                         | @lweyrich1         |
 | Michal Mlodecki           | @TheColector       |
+| Niklas                    | @NickeZ            |
+| Shubham Padkonde          | @Shubham-Padkonde  |
