@@ -36,7 +36,7 @@ import pylink  # noqa
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
-    'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
     'sphinxarg.ext'
 ]
 
