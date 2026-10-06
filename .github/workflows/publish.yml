@@ -7,12 +7,18 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pylink-square/
+    permissions:
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Set up Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
-          python-version: '3.9'
+          python-version: '3.11'
       - name: Install Dependencies
         run: |
           sudo apt-get install pandoc
@@ -26,8 +32,7 @@ jobs:
         run: |
           python setup.py bdist_wheel sdist
       - name: Publish Package
-        uses: pypa/gh-action-pypi-publish@v1.13.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
         with:
           user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
           packages_dir: ./dist/
