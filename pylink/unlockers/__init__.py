@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .unlock_kinetis import unlock_kinetis
+from .unlock_idcode import set_unlock_idcode
 
 
 def unlock(jlink, name):

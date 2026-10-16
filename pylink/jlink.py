@@ -1926,6 +1926,22 @@ class JLink(object):
 
         return True
 
+    @open_required
+    def set_unlock_idcode(self, id_code):
+        """Sets the J-Link unlock ``IDCODE`` and enables function redirect. This is
+        only supported by certain devices such as Renesas.
+
+        Args:
+          self (JLink): the ``JLink`` instance
+          id_code (str): ``IDCODE`` to unlock debug access in hexadecimal format
+
+        Returns:
+          ``None``
+        """
+        unlockers.set_unlock_idcode(self, id_code)
+
+        return True
+
     @connection_required
     def cpu_capability(self, capability):
         """Checks whether the J-Link has support for a CPU capability.
