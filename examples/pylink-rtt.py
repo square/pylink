@@ -68,7 +68,7 @@ def read_rtt(jlink):
 
 
 def write_rtt(jlink):
-    """Writes kayboard input to JLink RTT buffer #0.
+    """Writes keyboard input to JLink RTT buffer #0.
 
     This method is a loop that blocks waiting on stdin. When enter is pressed,
     LF and NUL bytes are added to the input and transmitted as a byte list.
