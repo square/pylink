@@ -21,11 +21,6 @@ try:
 except ImportError:
     sys.modules['psutil'] = {}
 
-try:
-    import six
-except ImportError:
-    sys.modules['six'] = {}
-
 import pylink
 
 import os
@@ -261,7 +256,6 @@ setuptools.setup(
     # Dependencies.
     install_requires=[
         'psutil >= 5.2.2',
-        'six'
     ],
 
     # Tests

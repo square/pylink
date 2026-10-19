@@ -32,7 +32,6 @@ import operator
 import os
 import sys
 import time
-import six
 
 
 logger = logging.getLogger(__name__)
@@ -429,7 +428,7 @@ class JLink(object):
           ``int``
         """
         regs = list(self.register_name(idx) for idx in self.register_list())
-        if isinstance(register, six.string_types):
+        if isinstance(register, str):
             try:
                 result = regs.index(register)
             except ValueError:
@@ -3480,7 +3479,7 @@ class JLink(object):
           The value stored in the given register.
         """
         # TODO: rename 'register_index' to 'register'
-        if isinstance(register_index, six.string_types):
+        if isinstance(register_index, str):
             register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
@@ -3504,7 +3503,7 @@ class JLink(object):
         register_indices = register_indices[:]
         num_regs = len(register_indices)
         for idx, indice in enumerate(register_indices):
-            if isinstance(indice, six.string_types):
+            if isinstance(indice, str):
                 register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(0)
@@ -3539,7 +3538,7 @@ class JLink(object):
           JLinkException: on write error.
         """
         # TODO: rename 'reg_index' to 'register'
-        if isinstance(reg_index, six.string_types):
+        if isinstance(reg_index, str):
             reg_index = self._get_register_index_from_name(reg_index)
         res = self._dll.JLINKARM_WriteReg(reg_index, value)
         if res != 0:
@@ -3573,7 +3572,7 @@ class JLink(object):
 
         num_regs = len(register_indices)
         for idx, indice in enumerate(register_indices):
-            if isinstance(indice, six.string_types):
+            if isinstance(indice, str):
                 register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(*values)
