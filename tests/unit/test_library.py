@@ -94,6 +94,7 @@ class TestLibrary(unittest.TestCase):
             return s
 
         mock_os.path.join.side_effect = join
+        mock_os.path.realpath.side_effect = lambda f: f
 
         def listdir(f):
             """List the files and directories within the directory."""
@@ -1136,6 +1137,30 @@ class TestLibrary(unittest.TestCase):
         path = "/Applications/SEGGER/JLink_V796n/libjlinkarm.dylib"
         lib = library.Library(path)
         self.assertEqual(lib.dll_version(), 7.96)
+
+    @mock.patch('os.path.realpath', new=lambda f: f)
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    def test_dll_version_linux_versioned_file_name(self, _mock_load_library):
+        path = "/opt/SEGGER/JLink/libjlinkarm.so.9.50.0"
+        lib = library.Library(path)
+        self.assertEqual(lib.dll_version(), 9.50)
+
+    @mock.patch('sys.platform', new='linux')
+    @mock.patch('os.path.realpath')
+    @mock.patch('pylink.library.open')
+    @mock.patch('tempfile.NamedTemporaryFile')
+    @mock.patch('ctypes.cdll.LoadLibrary')
+    def test_dll_version_linux_versioned_file_name_symlink(self, mock_load_library, mock_temp_file,
+                                                           _mock_open, mock_realpath):
+        path = "/opt/SEGGER/JLink/libjlinkarm.so.9"
+        real = "/opt/SEGGER/JLink/libjlinkarm.so.9.50.0"
+        mock_realpath.side_effect = lambda f: real if f == path else f
+
+        lib = library.Library(path)
+
+        self.assertEqual(lib.dll_version(), 9.50)
+        mock_temp_file.assert_not_called()
+        mock_load_library.assert_called_once_with(path)
 
 
 if __name__ == '__main__':

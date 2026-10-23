@@ -521,6 +521,10 @@ class Library(object):
             if match:
                 num_part = match.group(1)
                 return float(f"{num_part[0]}.{num_part[1:]}")
+
+            match = re.search(r"libjlinkarm(?:_x86)?\.so\.(\d+)\.(\d+)", os.path.realpath(self._path))
+            if match:
+                return float(f"{match.group(1)}.{match.group(2)}")
         return None
 
 
