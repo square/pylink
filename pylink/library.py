@@ -517,10 +517,16 @@ class Library(object):
             DLL version number (e.g. 7.96) or ``None`` if parsing fails.
         """
         if self._path is not None:
-            match = re.search(r"JLink(?:_Linux)?_V(\d+)", self._path)
+            real_path = os.path.realpath(self._path)
+            for path in (self._path, real_path):
+                match = re.search(r"JLink(?:_Linux)?_V(\d+)", path)
+                if match:
+                    num_part = match.group(1)
+                    return float(f"{num_part[0]}.{num_part[1:]}")
+
+            match = re.search(r"libjlinkarm(?:_x86)?\.so\.(\d+)\.(\d+)", real_path)
             if match:
-                num_part = match.group(1)
-                return float(f"{num_part[0]}.{num_part[1:]}")
+                return float(f"{match.group(1)}.{match.group(2)}")
         return None
 
 
