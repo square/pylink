@@ -744,6 +744,18 @@ class JLink(object):
         result = self._dll.JLINKARM_OpenEx(self.log_handler, self.error_handler)
         result = ctypes.cast(result, ctypes.c_char_p).value
         if result is not None:
+            # A failed 'JLINKARM_OpenEx()' leaves the DLL partially open and
+            # still holding our log/error callbacks.  As '_open_refcount' is
+            # still zero, 'close()' would do nothing, and the DLL would instead
+            # call 'JLINKARM_Close()' from its destructor at process exit, at
+            # which point the callbacks have been freed and it crashes.  Close
+            # it here while the callbacks are still alive.
+            self._dll.JLINKARM_Close()
+
+            if self._lock is not None:
+                del self._lock
+                self._lock = None
+
             raise errors.JLinkException(result.decode())
 
         # Configuration of the J-Link DLL.  These are configuration steps that

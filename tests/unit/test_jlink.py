@@ -857,6 +857,33 @@ class TestJLink(unittest.TestCase):
 
         self.assertEqual(1, self.dll.JLINKARM_OpenEx.call_count)
 
+    @mock.patch('pylink.jlock.JLock')
+    def test_jlink_open_dll_failed_closes_dll(self, mock_jlock):
+        """Tests that a failed ``open()`` closes the partially opened DLL and
+        releases the lock.
+
+        Otherwise the DLL calls ``JLINKARM_Close()`` from its destructor at
+        process exit, after the ctypes callbacks have been freed.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+          mock_jlock (Mock): the mocked lock instance
+
+        Returns:
+          ``None``
+        """
+        mock_jlock.return_value.acquire.return_value = True
+        self.dll.JLINKARM_EMU_SelectByUSBSN.return_value = 0
+
+        buf = ctypes.create_string_buffer(b'Error!', 32)
+        self.dll.JLINKARM_OpenEx.return_value = ctypes.addressof(buf)
+
+        with self.assertRaisesRegexp(JLinkException, 'Error!'):
+            self.jlink.open(serial_no=123456789)
+
+        self.assertEqual(1, self.dll.JLINKARM_Close.call_count)
+        self.assertIsNone(self.jlink._lock)
+
     @mock.patch('pylink.jlock.JLock', new=mock.Mock())
     def test_jlink_open_dll_failed_context_manager(self):
         """Tests the J-Link ``open()`` method (using context manager)

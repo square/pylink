@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- @twam: Fixed a crash at interpreter exit after `JLink.open()` failed. A
+  failed `JLINKARM_OpenEx()` left the J-Link DLL partially open with the
+  log/error callbacks registered; the DLL then called `JLINKARM_Close()` from
+  its destructor after the callbacks had been freed. `open()` now closes the
+  DLL and releases the lock when `JLINKARM_OpenEx()` fails.
+
 ## [2.0.2]
 
 ### Fixed
