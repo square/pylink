@@ -2876,7 +2876,8 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          output (int): the output buffer offset to write to
+          output (int): per-bit SWD direction mask for this transfer, packed
+            and passed to J-Link as ``pDir`` (not an output buffer offset)
           value (int): the value to write to the output buffer
           nbits (int): the number of bits needed to represent the ``output`` and
             ``value``
@@ -2899,7 +2900,8 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          output (int): the output buffer offset to write to
+          output (int): per-bit SWD direction mask for this transfer, packed
+            and passed to J-Link as ``pDir`` (not an output buffer offset)
           value (int): the value to write to the output buffer
 
         Returns:
@@ -2914,7 +2916,8 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          output (int): the output buffer offset to write to
+          output (int): per-bit SWD direction mask for this transfer, packed
+            and passed to J-Link as ``pDir`` (not an output buffer offset)
           value (int): the value to write to the output buffer
 
         Returns:
@@ -2929,7 +2932,8 @@ class JLink(object):
 
         Args:
           self (JLink): the ``JLink`` instance
-          output (int): the output buffer offset to write to
+          output (int): per-bit SWD direction mask for this transfer, packed
+            and passed to J-Link as ``pDir`` (not an output buffer offset)
           value (int): the value to write to the output buffer
 
         Returns:
