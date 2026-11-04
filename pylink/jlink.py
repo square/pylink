@@ -1148,7 +1148,13 @@ class JLink(object):
         # like 'unlock' or 'lock'.
         index = self.get_device_index(chip_name)
 
+        # If this call targets a different device than the one we were last
+        # connected to (e.g. switching cores on a multi-core target), we must
+        # force a real reconnect below even though the J-Link may still
+        # report 'connected' (just to the previous device/core).
+        prev_device = self._device
         self._device = self.supported_device(index)
+        device_changed = (prev_device is not None and prev_device.name != self._device.name)
 
         # This is weird but is currently the only way to specify what the
         # target is to the J-Link.
@@ -1165,8 +1171,13 @@ class JLink(object):
 
         # When we specify 'Device =', we will trigger an auto-connect to the
         # target under debugging. If the 'exec_command' failed, then we want
-        # to force the connect here.
-        if not self.target_connected():
+        # to force the connect here. We also force it when switching to a
+        # different device/core mid-session: 'target_connected()' can still
+        # report True because the J-Link is connected to the *previous*
+        # device, which would otherwise make us silently stay attached to
+        # the wrong core instead of reconnecting to the requested one (see
+        # issue #278).
+        if not self.target_connected() or device_changed:
             result = self._dll.JLINKARM_Connect()
             if result < 0:
                 raise errors.JLinkException(result)
