@@ -48,6 +48,9 @@ class JLink(object):
     # so we base this number on that.  Other models have 80 bytes.
     MAX_BUF_SIZE = 336
 
+    # Override to false, used in targets not requiring connection
+    target_connection_required = True
+
     # Maximum number of CPU registers.
     MAX_NUM_CPU_REGISTERS = 256
 
@@ -168,7 +171,7 @@ class JLink(object):
             Raises:
               JLinkException: if the JLink's target is not connected.
             """
-            if not self.target_connected():
+            if (not self.target_connected()) and self.target_connection_required:
                 raise errors.JLinkException('Target is not connected.')
             return func(self, *args, **kwargs)
         return wrapper
