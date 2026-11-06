@@ -7,12 +7,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.0]
+
 ### Fixed
 - @twam: Fixed a crash at interpreter exit after `JLink.open()` failed. A
   failed `JLINKARM_OpenEx()` left the J-Link DLL partially open with the
   log/error callbacks registered; the DLL then called `JLINKARM_Close()` from
   its destructor after the callbacks had been freed. `open()` now closes the
   DLL and releases the lock when `JLINKARM_OpenEx()` fails.
+- @TheArkadiuszGrzelka: Fixed a bug where symbolic links for the library
+  package would result in `dll_version()` returning `None`.
+- @arod93: Fixed a bug where calling `connect()` would fail for multi-CPU
+  targets when switching from one CPU to another CPU on an already connected
+  instance.
+
+### Removed
+- @ericLemanissier: Removed `six` dependency.
 
 ## [2.0.2]
 
