@@ -270,8 +270,8 @@ class JLink(object):
           unsecure_hook (function): function to be called for the unsecure
             dialog
           serial_no (int): serial number of the J-Link
-          ip_addr (str): IP address and port of the J-Link
-            (e.g. 192.168.1.1:80)
+          ip_addr (str): hostname or IP address and optional port of the J-Link;
+            see ``open()`` for address syntax (default port: 19020)
           open_tunnel (bool, None): If ``False`` (default), the ``open``
             method will be called when entering the context manager using
             the ``serial_no`` and ``ip_addr`` provided here.
@@ -685,10 +685,20 @@ class JLink(object):
         If ``serial_no`` and ``ip_addr`` are both given, this function will
         connect to the J-Link over TCP/IP.
 
+        Hostnames and IPv4 addresses may omit the port, which defaults to
+        19020. Use brackets around IPv6 addresses, e.g. ``[::1]`` or
+        ``[::1]:19020``. For backward compatibility, unbracketed inputs
+        containing colons are still split at the last colon into host and
+        port, including existing tunnel addresses.
+
+        IPv6 address parsing is provided for forward compatibility; actual
+        connectivity depends on the J-Link DLL.
+
         Args:
           self (JLink): the ``JLink`` instance
           serial_no (int): serial number of the J-Link
-          ip_addr (str): IP address and port of the J-Link (e.g. 192.168.1.1:80)
+          ip_addr (str): hostname or IP address and optional port of the J-Link
+            (e.g. 192.168.1.1:80; default port: 19020)
 
         Returns:
           ``None``
@@ -696,6 +706,8 @@ class JLink(object):
         Raises:
           JLinkException: if fails to open (i.e. if device is unplugged)
           TypeError: if ``serial_no`` is present, but not ``int`` coercible.
+          ValueError: if a bracketed address is malformed or the port is not
+            ``int`` coercible.
           AttributeError: if ``serial_no`` and ``ip_addr`` are both ``None``.
         """
         if self._open_refcount > 0:
@@ -710,7 +722,15 @@ class JLink(object):
         self.close()
 
         if ip_addr is not None:
-            addr, port = ip_addr.rsplit(':', 1)
+            addr, port = ip_addr, 19020
+            if ip_addr.startswith('['):
+                addr, closing_bracket, suffix = ip_addr[1:].partition(']')
+                if not closing_bracket or (suffix and not suffix.startswith(':')):
+                    raise ValueError('Invalid bracketed IP address: %s' % ip_addr)
+                if suffix:
+                    port = suffix[1:]
+            elif ':' in ip_addr:
+                addr, port = ip_addr.rsplit(':', 1)
             if serial_no is None:
                 result = self._dll.JLINKARM_SelectIP(addr.encode(), int(port))
                 if result == 1:

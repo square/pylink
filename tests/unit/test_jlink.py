@@ -649,6 +649,75 @@ class TestJLink(unittest.TestCase):
 
         self.dll.JLINKARM_SelectIP.assert_called_once()
 
+    def test_jlink_open_ethernet_address_formats(self):
+        """Tests default ports, bracketed IPv6, and legacy address parsing."""
+        self.dll.JLINKARM_SelectIP.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        addresses = [
+            ('probe', 'probe', 19020),
+            ('probe.example.com', 'probe.example.com', 19020),
+            ('127.0.0.1', '127.0.0.1', 19020),
+            ('probe.example.com:12345', 'probe.example.com', 12345),
+            ('127.0.0.1:19020', '127.0.0.1', 19020),
+            ('127.0.0.1:12345', '127.0.0.1', 12345),
+            ('[::1]', '::1', 19020),
+            ('[2001:db8::1]', '2001:db8::1', 19020),
+            ('[fe80::1%en0]', 'fe80::1%en0', 19020),
+            ('[2001:db8::1]:12345', '2001:db8::1', 12345),
+            ('[2001:db8:0:1:2:3:4:5]', '2001:db8:0:1:2:3:4:5', 19020),
+            ('::1:19020', '::1', 19020),
+            ('2001:db8::1:12345', '2001:db8::1', 12345),
+            ('tunnel:123456789:19020', 'tunnel:123456789', 19020),
+            ('tunnel:123456789:12345', 'tunnel:123456789', 12345),
+            ('tunnel:probe:password:server.example.com:19020',
+             'tunnel:probe:password:server.example.com', 19020),
+        ]
+        for ip_addr, host, port in addresses:
+            with self.subTest(ip_addr=ip_addr):
+                self.dll.JLINKARM_SelectIP.reset_mock()
+                try:
+                    self.jlink.open(ip_addr=ip_addr)
+                    self.dll.JLINKARM_SelectIP.assert_called_once_with(host.encode(), port)
+                    self.assertTrue(self.jlink.opened())
+                finally:
+                    self.jlink.close()
+
+    def test_jlink_open_ethernet_default_port_context_manager(self):
+        """Tests that context managers also accept a host without a port."""
+        self.dll.JLINKARM_SelectIP.return_value = 0
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        with jlink.JLink(self.lib, ip_addr='probe.example.com') as jl:
+            self.assertTrue(jl.opened())
+        self.dll.JLINKARM_SelectIP.assert_called_once_with(b'probe.example.com', 19020)
+        self.dll.JLINKARM_Close.assert_called_once()
+
+    @mock.patch('pylink.jlock.JLock', new=mock.Mock())
+    def test_jlink_open_ethernet_default_port_and_serial_number(self):
+        """Tests that a portless host still selects Ethernet when given a serial number."""
+        self.dll.JLINKARM_OpenEx.return_value = 0
+        self.jlink.open(serial_no=123456789, ip_addr='probe.example.com')
+        self.dll.JLINKARM_EMU_SelectIPBySN.assert_called_once_with(123456789)
+        self.dll.JLINKARM_SelectIP.assert_not_called()
+
+    def test_jlink_open_ethernet_default_port_selection_failed(self):
+        """Tests that DLL selection failures remain JLinkException, including for IPv6."""
+        self.dll.JLINKARM_SelectIP.return_value = 1
+        for ip_addr in ['probe.example.com', '[::1]', '[::1]:12345']:
+            with self.subTest(ip_addr=ip_addr):
+                with self.assertRaises(JLinkException) as raised:
+                    self.jlink.open(ip_addr=ip_addr)
+                self.assertIn(ip_addr, str(raised.exception))
+                self.dll.JLINKARM_OpenEx.assert_not_called()
+
+    def test_jlink_open_ethernet_invalid_address(self):
+        """Tests malformed brackets and non-numeric or empty explicit ports."""
+        for ip_addr in ['[::1', '[::1]invalid', '[::1]:', '[::1]:invalid', 'probe:', 'probe:invalid']:
+            with self.subTest(ip_addr=ip_addr):
+                with self.assertRaises(ValueError):
+                    self.jlink.open(ip_addr=ip_addr)
+                self.dll.JLINKARM_SelectIP.assert_not_called()
+                self.dll.JLINKARM_OpenEx.assert_not_called()
+
     @mock.patch('pylink.jlock.JLock', new=mock.Mock())
     def test_jlink_open_ethernet_context_manager(self):
         """Tests the J-Link ``open()`` method (using context manager)
