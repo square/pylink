@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- @twam: Allow `JLink.open()` to omit the port for hostnames, IPv4 addresses,
+  and bracketed IPv6 addresses, defaulting to port 19020. Bracketed IPv6
+  addresses with explicit ports are also accepted, subject to J-Link DLL
+  support. Existing unbracketed host/port and tunnel parsing is preserved.
+
 ## [2.1.0]
 
 ### Fixed
