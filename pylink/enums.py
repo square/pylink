@@ -223,19 +223,23 @@ class JLinkDataErrors(JLinkGlobalErrors):
         Raises:
           ValueError: if the error code is invalid.
         """
-        if error_code == cls.ERROR_UNKNOWN:
+        # The DLL returns these codes through a C ``int``, so a code with the
+        # high bit set arrives as a negative number.  Compare the unsigned
+        # 32-bit value so that both forms are recognised.
+        data_code = error_code & 0xFFFFFFFF
+        if data_code == cls.ERROR_UNKNOWN:
             return 'Unknown error.'
-        elif error_code == cls.ERROR_NO_MORE_EVENTS:
+        elif data_code == cls.ERROR_NO_MORE_EVENTS:
             return 'There are no more available watchpoint units.'
-        elif error_code == cls.ERROR_NO_MORE_ADDR_COMP:
+        elif data_code == cls.ERROR_NO_MORE_ADDR_COMP:
             return 'No more address comparisons can be set.'
-        elif error_code == cls.ERROR_NO_MORE_DATA_COMP:
+        elif data_code == cls.ERROR_NO_MORE_DATA_COMP:
             return 'No more data comparisons can be set.'
-        elif error_code == cls.ERROR_INVALID_ADDR_MASK:
+        elif data_code == cls.ERROR_INVALID_ADDR_MASK:
             return 'Invalid flags passed for the address mask.'
-        elif error_code == cls.ERROR_INVALID_DATA_MASK:
+        elif data_code == cls.ERROR_INVALID_DATA_MASK:
             return 'Invalid flags passed for the data mask.'
-        elif error_code == cls.ERROR_INVALID_ACCESS_MASK:
+        elif data_code == cls.ERROR_INVALID_ACCESS_MASK:
             return 'Invalid flags passed for the access mask.'
         return super(JLinkDataErrors, cls).to_string(error_code)
 

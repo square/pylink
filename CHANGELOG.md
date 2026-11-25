@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   addresses with explicit ports are also accepted, subject to J-Link DLL
   support. Existing unbracketed host/port and tunnel parsing is preserved.
 
+### Fixed
+- @ranjithguggilla: Fixed `JLink.watchpoint_set()` raising `ValueError`
+  instead of `JLinkDataException` when the J-Link DLL reported a data event
+  error such as running out of watchpoint units. The DLL returns these codes
+  as signed 32-bit integers, which `JLinkDataErrors.to_string()` did not
+  recognise.
+
 ## [2.1.0]
 
 ### Fixed

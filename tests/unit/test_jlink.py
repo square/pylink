@@ -4932,6 +4932,32 @@ class TestJLink(unittest.TestCase):
         self.assertTrue(isinstance(wp, structs.JLinkDataEvent))
         self.assertTrue((3 < 1) | (1 << 4), wp.AccessMask)
 
+    def test_jlink_watchpoint_set_failure_data_error(self):
+        """Tests setting a watchpoint failing with a data event error code.
+
+        The data event error codes have the high bit set, and the DLL returns
+        them through a C ``int``, so they are negative when they reach Python.
+
+        Args:
+          self (TestJLink): the ``TestJLink`` instance
+
+        Returns:
+          ``None``
+        """
+        addr = 0xdeadbeef
+
+        # ``JLINKARM_EVENT_ERROR_NO_MORE_EVENTS`` as a signed 32-bit integer.
+        res = enums.JLinkDataErrors.ERROR_NO_MORE_EVENTS - (1 << 32)
+        self.assertEqual(ctypes.c_int(0x80000001).value, res)
+
+        self.dll.JLINKARM_SetDataEvent.return_value = res
+        with self.assertRaises(JLinkDataException) as cm:
+            self.jlink.watchpoint_set(addr)
+
+        self.assertEqual('There are no more available watchpoint units.',
+                         str(cm.exception))
+        self.assertEqual(res, cm.exception.code)
+
     def test_jlink_watchpoint_set_success(self):
         """Tests successfully setting a watchpoint.
 
