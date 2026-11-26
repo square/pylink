@@ -134,6 +134,37 @@ class TestEnums(unittest.TestCase):
         error_message = enums.JLinkDataErrors.to_string(-1)
         self.assertEqual('Unspecified error.', error_message)
 
+    def test_jlink_data_event_errors_signed(self):
+        """Tests the data event errors given as signed 32-bit integers.
+
+        The DLL returns the data event errors through a C ``int``, so they
+        reach the enumeration as negative numbers.
+
+        Args:
+          self (TestEnums): the ``TestEnums`` instance
+
+        Returns:
+          ``None``
+        """
+        error_codes = [
+            0x80000000, 0x80000001, 0x80000002, 0x80000004, 0x80000020,
+            0x80000040, 0x80000080
+        ]
+
+        for error_code in error_codes:
+            signed_code = error_code - (1 << 32)
+            self.assertTrue(signed_code < 0)
+            self.assertEqual(enums.JLinkDataErrors.to_string(error_code),
+                             enums.JLinkDataErrors.to_string(signed_code))
+
+        # Global error codes are still resolved, and unknown codes are still
+        # rejected.
+        error_message = enums.JLinkDataErrors.to_string(-256)
+        self.assertEqual('No connection to emulator.', error_message)
+
+        with self.assertRaises(ValueError):
+            enums.JLinkDataErrors.to_string(0x80000003 - (1 << 32))
+
     def test_jlink_flash_errors(self):
         """Tests flash specific errors.
 
